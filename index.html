@@ -1,0 +1,3330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sistema de Control AR - Antirreflejo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --bg-primary: #0a0e1a;
+    --bg-secondary: #131826;
+    --bg-card: #1c2333;
+    --bg-card-hover: #252d40;
+    --bg-input: #0f1420;
+    --accent-verde: #10b981;
+    --accent-azul: #3b82f6;
+    --accent-amber: #f59e0b;
+    --accent-red: #ef4444;
+    --accent-purple: #8b5cf6;
+    --accent-cyan: #06b6d4;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --border-color: #2d3548;
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.5);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: linear-gradient(135deg, var(--bg-primary), var(--bg-secondary));
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === LAYOUT PRINCIPAL === */
+  .app-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 100vh;
+  }
+
+  /* === SIDEBAR === */
+  .sidebar {
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    padding: 20px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-header {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 15px;
+  }
+
+  .sidebar-header h1 {
+    font-size: 1.15rem;
+    color: var(--accent-cyan);
+    letter-spacing: 0.5px;
+  }
+
+  .sidebar-header p {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .nav-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+  }
+
+  .nav-item:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+  }
+
+  .nav-item.active {
+    background: var(--bg-card-hover);
+    color: var(--accent-cyan);
+    border-left-color: var(--accent-cyan);
+  }
+
+  .nav-icon { font-size: 1.2rem; }
+
+  /* === MAIN CONTENT === */
+  .main-content {
+    padding: 28px 32px;
+    overflow-x: hidden;
+  }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .page-title h2 {
+    font-size: 1.7rem;
+    margin-bottom: 4px;
+  }
+
+  .page-title p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  /* === BUTTONS === */
+  .btn {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 7px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .btn-primary { background: var(--accent-azul); color: white; }
+  .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+  .btn-success { background: var(--accent-verde); color: white; }
+  .btn-success:hover { background: #059669; transform: translateY(-1px); }
+  .btn-warning { background: var(--accent-amber); color: white; }
+  .btn-warning:hover { background: #d97706; transform: translateY(-1px); }
+  .btn-danger { background: var(--accent-red); color: white; }
+  .btn-danger:hover { background: #dc2626; transform: translateY(-1px); }
+  .btn-secondary { background: var(--bg-card-hover); color: var(--text-primary); border: 1px solid var(--border-color); }
+  .btn-secondary:hover { background: var(--border-color); }
+  .btn-sm { padding: 6px 12px; font-size: 0.82rem; }
+
+  /* === CARDS === */
+  .card {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
+    margin-bottom: 22px;
+  }
+
+  .card h3 {
+    font-size: 1.15rem;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* === DASHBOARD === */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--bg-card);
+    padding: 22px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-cyan);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card.verde { border-left-color: var(--accent-verde); }
+  .stat-card.azul { border-left-color: var(--accent-azul); }
+  .stat-card.amber { border-left-color: var(--accent-amber); }
+  .stat-card.purple { border-left-color: var(--accent-purple); }
+  .stat-card.red { border-left-color: var(--accent-red); }
+
+  .stat-label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .stat-sub {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+
+  /* === DASHBOARD GRID === */
+  .dashboard-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+    margin-bottom: 22px;
+  }
+
+  @media (max-width: 1100px) {
+    .dashboard-charts { grid-template-columns: 1fr; }
+  }
+
+  .chart-container {
+    position: relative;
+    height: 280px;
+  }
+
+  /* === CALENDAR === */
+  .calendar-section {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 22px;
+  }
+
+  @media (max-width: 1100px) {
+    .calendar-section { grid-template-columns: 1fr; }
+  }
+
+  .calendar-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .calendar-nav {
+    display: flex;
+    gap: 6px;
+  }
+
+  .calendar-nav button {
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 7px 13px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+
+  .calendar-nav button:hover { background: var(--accent-azul); }
+
+  .month-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+
+  .day-label {
+    text-align: center;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 7px;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+  }
+
+  .day-cell {
+    aspect-ratio: 1;
+    background: var(--bg-input);
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .day-cell:hover:not(.empty) {
+    background: var(--bg-card-hover);
+    border-color: var(--accent-azul);
+  }
+
+  .day-cell.empty { background: transparent; cursor: default; }
+  .day-cell.today { border-color: var(--accent-amber); }
+  .day-cell.selected { border-color: var(--accent-cyan) !important; box-shadow: 0 0 0 2px var(--accent-cyan); }
+  .day-cell.has-data-verde { background: linear-gradient(135deg, rgba(16,185,129,0.4), rgba(16,185,129,0.15)); }
+  .day-cell.has-data-azul { background: linear-gradient(135deg, rgba(59,130,246,0.4), rgba(59,130,246,0.15)); }
+  .day-cell.has-data-mixed { background: linear-gradient(135deg, rgba(16,185,129,0.35), rgba(59,130,246,0.35)); }
+  .day-cell.has-pending { box-shadow: inset 0 -3px 0 var(--accent-amber); }
+
+  .day-number {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .day-info {
+    margin-top: auto;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    line-height: 1.2;
+  }
+
+  .day-info strong { color: var(--text-primary); font-size: 0.78rem; }
+
+  /* === FORMS === */
+  .form-group { margin-bottom: 14px; }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: inherit;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent-azul);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .form-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .color-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .color-option {
+    padding: 13px;
+    border-radius: 7px;
+    border: 2px solid var(--border-color);
+    cursor: pointer;
+    text-align: center;
+    font-weight: 600;
+    transition: all 0.2s;
+    user-select: none;
+    font-size: 0.9rem;
+  }
+
+  .color-option.verde { background: rgba(16,185,129,0.15); color: var(--accent-verde); }
+  .color-option.verde.selected { background: var(--accent-verde); color: white; border-color: var(--accent-verde); }
+  .color-option.azul { background: rgba(59,130,246,0.15); color: var(--accent-azul); }
+  .color-option.azul.selected { background: var(--accent-azul); color: white; border-color: var(--accent-azul); }
+
+  /* === TABLES === */
+  .table-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    max-height: 500px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  th, td {
+    padding: 11px 13px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  th {
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+
+  tbody tr:hover { background: var(--bg-card-hover); }
+
+  /* === BADGES === */
+  .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 11px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .badge-verde { background: rgba(16,185,129,0.2); color: var(--accent-verde); }
+  .badge-azul { background: rgba(59,130,246,0.2); color: var(--accent-azul); }
+  .badge-amber { background: rgba(245,158,11,0.2); color: var(--accent-amber); }
+  .badge-red { background: rgba(239,68,68,0.2); color: var(--accent-red); }
+  .badge-cyan { background: rgba(6,182,212,0.2); color: var(--accent-cyan); }
+  .badge-gray { background: rgba(148,163,184,0.2); color: var(--text-secondary); }
+
+  /* === ALERTS === */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 7px;
+    margin-bottom: 12px;
+    border-left: 4px solid;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+  }
+
+  .alert-info {
+    background: rgba(59,130,246,0.1);
+    border-left-color: var(--accent-azul);
+    color: #93c5fd;
+  }
+
+  .alert-warning {
+    background: rgba(245,158,11,0.1);
+    border-left-color: var(--accent-amber);
+    color: #fcd34d;
+  }
+
+  .alert-danger {
+    background: rgba(239,68,68,0.1);
+    border-left-color: var(--accent-red);
+    color: #fca5a5;
+  }
+
+  .alert-success {
+    background: rgba(16,185,129,0.1);
+    border-left-color: var(--accent-verde);
+    color: #86efac;
+  }
+
+  /* === PROGRESS BAR === */
+  .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-input);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    transition: width 0.3s;
+  }
+
+  /* === TOAST === */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    padding: 14px 22px;
+    background: var(--accent-verde);
+    color: white;
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    transform: translateX(450px);
+    transition: transform 0.3s;
+    z-index: 1000;
+    font-weight: 500;
+    max-width: 380px;
+  }
+
+  .toast.show { transform: translateX(0); }
+  .toast.error { background: var(--accent-red); }
+  .toast.warning { background: var(--accent-amber); }
+
+  /* === MODAL === */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 540px;
+    width: 90%;
+    max-height: 88vh;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+  }
+
+  .modal h3 {
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 18px;
+  }
+
+  /* === HIDE/SHOW PAGES === */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* === SHIFT PROGRAMMING === */
+  .shift-card {
+    background: var(--bg-input);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 12px;
+    border-left: 4px solid var(--accent-cyan);
+  }
+
+  .shift-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .shift-time {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .shift-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    font-size: 0.86rem;
+  }
+
+  .shift-info-item {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .shift-info-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .shift-info-value { font-weight: 600; margin-top: 2px; }
+
+  /* === INSUMO CARDS === */
+  .insumos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+
+  .insumo-card {
+    background: var(--bg-input);
+    padding: 16px;
+    border-radius: 9px;
+    border: 1px solid var(--border-color);
+  }
+
+  .insumo-card h4 {
+    font-size: 1rem;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .insumo-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 0.86rem;
+    border-bottom: 1px dashed var(--border-color);
+  }
+
+  .insumo-stat:last-of-type { border-bottom: none; }
+
+  .insumo-stat-label { color: var(--text-secondary); }
+
+  .insumo-stat-value { font-weight: 600; }
+
+  /* === ACTION BUTTONS === */
+  .icon-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 5px 9px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin: 0 2px;
+  }
+
+  .icon-btn:hover { color: var(--text-primary); border-color: var(--accent-azul); }
+  .icon-btn.danger:hover { color: var(--accent-red); border-color: var(--accent-red); }
+
+  /* === EMPTY STATE === */
+  .empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--text-muted);
+  }
+
+  .empty-state h4 {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+  }
+
+  /* === MOBILE === */
+  @media (max-width: 768px) {
+    .app-layout { grid-template-columns: 1fr; }
+    .sidebar { position: relative; height: auto; }
+    .main-content { padding: 16px; }
+    .form-row, .form-row-3 { grid-template-columns: 1fr; }
+  }
+
+  /* === GOOGLE SHEETS SYNC === */
+  .sync-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: var(--bg-input);
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    font-size: 0.85rem;
+  }
+
+  .sync-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--text-muted);
+  }
+
+  .sync-dot.connected { background: var(--accent-verde); box-shadow: 0 0 8px var(--accent-verde); }
+  .sync-dot.syncing { background: var(--accent-amber); animation: pulse 1s infinite; }
+  .sync-dot.error { background: var(--accent-red); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .gsheets-status-card {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+
+  .gsheets-stat {
+    background: var(--bg-input);
+    padding: 14px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+  }
+
+  .gsheets-stat-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+
+  .gsheets-stat-value {
+    font-size: 1.05rem;
+    font-weight: 600;
+    word-break: break-all;
+  }
+
+  .config-warning {
+    background: rgba(245,158,11,0.15);
+    border: 1px solid var(--accent-amber);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    color: #fcd34d;
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="app-layout">
+  <!-- ========== SIDEBAR ========== -->
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <h1>🔬 Control AR</h1>
+      <p>Sistema integral antirreflejo</p>
+      <div class="sync-status" style="margin-top:10px;">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncText">Sin conectar</span>
+      </div>
+    </div>
+    <div class="nav-item active" data-page="dashboard">
+      <span class="nav-icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" data-page="ciclos">
+      <span class="nav-icon">📅</span> Ciclos Realizados
+    </div>
+    <div class="nav-item" data-page="pendientes">
+      <span class="nav-icon">⏳</span> Ciclos Pendientes
+    </div>
+    <div class="nav-item" data-page="turnos">
+      <span class="nav-icon">👥</span> Turnos
+    </div>
+    <div class="nav-item" data-page="insumos">
+      <span class="nav-icon">📦</span> Insumos
+    </div>
+    <div class="nav-item" data-page="reportes">
+      <span class="nav-icon">📁</span> Excel / Reportes
+    </div>
+    <div class="nav-item" data-page="gsheets">
+      <span class="nav-icon">☁️</span> Google Sheets
+    </div>
+  </nav>
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <main class="main-content">
+
+    <!-- ============ DASHBOARD ============ -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>Dashboard</h2>
+          <p>Panorama general de operación</p>
+        </div>
+      </div>
+
+      <div id="alertContainer"></div>
+
+      <div class="stats-grid">
+        <div class="stat-card verde">
+          <div class="stat-label">Ciclos hoy</div>
+          <div class="stat-value" id="statCiclosHoy">0</div>
+          <div class="stat-sub" id="statCiclosHoyDetail">— ciclos completos · — medios</div>
+        </div>
+        <div class="stat-card azul">
+          <div class="stat-label">Ciclos esta semana</div>
+          <div class="stat-value" id="statCiclosSemana">0</div>
+          <div class="stat-sub">Lunes a hoy</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-label">Pendientes mañana</div>
+          <div class="stat-value" id="statPendientes">0</div>
+          <div class="stat-sub" id="statPendientesDetail">Sin programación</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-label">Total ciclos del mes</div>
+          <div class="stat-value" id="statCiclosMes">0</div>
+          <div class="stat-sub" id="statCiclosMesDetail">— verde · — azul</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Alertas insumos</div>
+          <div class="stat-value" id="statAlertas">0</div>
+          <div class="stat-sub">Requieren atención</div>
+        </div>
+      </div>
+
+      <div class="dashboard-charts">
+        <div class="card">
+          <h3>📈 Producción últimos 14 días</h3>
+          <div class="chart-container">
+            <canvas id="chartProduccion"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <h3>🥧 Distribución por color (mes actual)</h3>
+          <div class="chart-container">
+            <canvas id="chartColores"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📦 Estado de insumos</h3>
+        <div id="dashboardInsumos" class="insumos-grid"></div>
+      </div>
+    </div>
+
+    <!-- ============ CICLOS REALIZADOS ============ -->
+    <div class="page" id="page-ciclos">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>Control de Ciclos Realizados</h2>
+          <p>Registro diario de ciclos completos y medios ciclos por color</p>
+        </div>
+        <div class="toolbar">
+          <button class="btn btn-secondary btn-sm" onclick="goToToday()">📍 Hoy</button>
+        </div>
+      </div>
+
+      <div class="alert alert-info">
+        <span>ℹ️</span>
+        <span>Un <strong>ciclo completo</strong> = AR aplicado a ambas caras del lente. Un <strong>medio ciclo</strong> = AR aplicado a una sola cara.</span>
+      </div>
+
+      <div class="calendar-section">
+        <div class="card">
+          <div class="calendar-header-row">
+            <div class="calendar-nav">
+              <button onclick="changeMonth(-1)">‹</button>
+              <button onclick="goToToday()">Hoy</button>
+              <button onclick="changeMonth(1)">›</button>
+            </div>
+            <div class="month-title" id="monthTitle"></div>
+          </div>
+          <div class="calendar-grid" id="calendar"></div>
+          <div style="margin-top:14px; font-size:0.8rem; color:var(--text-muted); display:flex; gap:14px; flex-wrap:wrap;">
+            <span>🟢 Verde</span>
+            <span>🔵 Azul</span>
+            <span>🟡 Mixto</span>
+            <span style="border-bottom:3px solid var(--accent-amber);padding-bottom:1px;">Pendiente</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h3>📝 Registrar ciclos</h3>
+            <div class="form-group">
+              <label>Fecha</label>
+              <input type="date" id="dateInput" />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Ciclos completos</label>
+                <input type="number" id="ciclosInput" min="0" step="1" value="0" />
+              </div>
+              <div class="form-group">
+                <label>Medios ciclos</label>
+                <input type="number" id="mediosInput" min="0" step="1" value="0" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Color del antirreflejo</label>
+              <div class="color-options">
+                <div class="color-option verde" data-color="VERDE" onclick="selectColor('VERDE')">🟢 VERDE</div>
+                <div class="color-option azul" data-color="AZUL" onclick="selectColor('AZUL')">🔵 AZUL</div>
+              </div>
+            </div>
+            <button class="btn btn-success" style="width:100%" onclick="saveRecord()">✓ Guardar</button>
+          </div>
+
+          <div class="card">
+            <h3>📊 Resumen del día</h3>
+            <div id="daySummary">
+              <div class="empty-state">
+                <h4>Sin registros</h4>
+                <p style="font-size:0.85rem;">Selecciona un día con datos</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📋 Historial de registros</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>FECHA</th>
+                <th>CICLO REALIZADO</th>
+                <th>COLOR DEL CICLO</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="recordsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CICLOS PENDIENTES ============ -->
+    <div class="page" id="page-pendientes">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>Ciclos Pendientes</h2>
+          <p>Registro de ciclos a procesar el día siguiente</p>
+        </div>
+      </div>
+
+      <div class="alert alert-warning">
+        <span>⚠️</span>
+        <span>Estos ciclos alimentan automáticamente el módulo de Programación de Turnos.</span>
+      </div>
+
+      <div class="card">
+        <h3>➕ Nuevo registro de pendientes</h3>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label>Fecha de ejecución</label>
+            <input type="date" id="pendDate" />
+          </div>
+          <div class="form-group">
+            <label>Ciclos completos</label>
+            <input type="number" id="pendCiclos" min="0" step="1" value="0" />
+          </div>
+          <div class="form-group">
+            <label>Medios ciclos</label>
+            <input type="number" id="pendMedios" min="0" step="1" value="0" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Color del antirreflejo</label>
+          <div class="color-options">
+            <div class="color-option verde selected" data-color-pend="VERDE" onclick="selectPendColor('VERDE')">🟢 VERDE</div>
+            <div class="color-option azul" data-color-pend="AZUL" onclick="selectPendColor('AZUL')">🔵 AZUL</div>
+          </div>
+        </div>
+        <button class="btn btn-warning" onclick="savePendiente()">+ Agregar pendiente</button>
+      </div>
+
+      <div class="card">
+        <h3>📋 Pendientes registrados</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>FECHA REGISTRO</th>
+                <th>FECHA EJECUCIÓN</th>
+                <th>CICLOS COMPLETOS</th>
+                <th>MEDIOS CICLOS</th>
+                <th>COLOR</th>
+                <th>EQUIV. HORAS</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="pendientesTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TURNOS ============ -->
+    <div class="page" id="page-turnos">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>Programación de Turnos</h2>
+          <p>Asignación automática para 2 operarias según carga</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>⚙️ Generar programación</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Fecha de ejecución</label>
+            <input type="date" id="turnoFecha" />
+          </div>
+          <div class="form-group">
+            <label>Operaria 1</label>
+            <input type="text" id="op1Nombre" value="Operaria 1" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Operaria 2</label>
+            <input type="text" id="op2Nombre" value="Operaria 2" />
+          </div>
+          <div class="form-group">
+            <label>Hora de inicio preferida</label>
+            <select id="horaInicio">
+              <option value="6">6:00 a.m.</option>
+              <option value="7">7:00 a.m.</option>
+              <option value="8" selected>8:00 a.m.</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="generarTurnos()">⚡ Generar turnos</button>
+      </div>
+
+      <div class="card">
+        <h3>📅 Turnos programados</h3>
+        <div id="turnosContainer">
+          <div class="empty-state">
+            <h4>Aún no se han generado turnos</h4>
+            <p style="font-size:0.85rem;">Selecciona una fecha y haz clic en "Generar turnos"</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📋 Reglas operativas</h3>
+        <ul style="list-style:none; padding-left:0; line-height:2; font-size:0.9rem; color:var(--text-secondary);">
+          <li>✓ Cada cara del lente: <strong style="color:var(--text-primary)">1 hora</strong></li>
+          <li>✓ Ciclo completo: <strong style="color:var(--text-primary)">2 caras = 2 horas</strong></li>
+          <li>✓ Promedio: <strong style="color:var(--text-primary)">2 ciclos completos cada 4 horas</strong></li>
+          <li>✓ Solo 2 operarias · Máximo 8h por turno</li>
+          <li>✓ Inicio entre 6:00 a.m. y 8:00 a.m.</li>
+          <li>✓ Despachos cierran a las 4:30 p.m.</li>
+          <li>✓ Tope máximo de trabajo: 9:00 p.m.</li>
+          <li>✓ Lunes a sábado · Domingo solo si quedan +5 ciclos pendientes para el lunes</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ============ INSUMOS ============ -->
+    <div class="page" id="page-insumos">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>Control de Insumos</h2>
+          <p>Inventario, consumo y alertas de reposición</p>
+        </div>
+      </div>
+
+      <div id="insumosAlertas"></div>
+
+      <div class="card">
+        <h3>📦 Estado actual del inventario</h3>
+        <div id="insumosCards" class="insumos-grid"></div>
+      </div>
+
+      <div class="card">
+        <h3>➕ Registrar movimiento</h3>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" id="movFecha" />
+          </div>
+          <div class="form-group">
+            <label>Insumo</label>
+            <select id="movInsumo">
+              <option value="HIDROFOBICO">Hidrofóbico (pastillas)</option>
+              <option value="ZIRCONIO">Zirconio (unidades)</option>
+              <option value="CUARZO">Cuarzo (unidades)</option>
+              <option value="FILAMENTO">Filamento (unidades)</option>
+              <option value="CROMO">Cromo (gramos)</option>
+              <option value="SILICIO">Silicio (envases)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tipo de movimiento</label>
+            <select id="movTipo">
+              <option value="ENTRADA">📥 Entrada (compra)</option>
+              <option value="INICIO_USO">▶️ Inicio de uso</option>
+              <option value="AGOTADO">🔚 Agotado</option>
+              <option value="CONSUMO">⚙️ Consumo manual</option>
+              <option value="REEMPLAZO">🔄 Reemplazo (filamento)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label>Cantidad</label>
+            <input type="number" id="movCantidad" min="0" step="0.01" value="0" />
+          </div>
+          <div class="form-group">
+            <label>Lote (opcional)</label>
+            <input type="text" id="movLote" placeholder="Ej: L-2026-001" />
+          </div>
+          <div class="form-group">
+            <label>Observaciones</label>
+            <input type="text" id="movObs" placeholder="Notas..." />
+          </div>
+        </div>
+        <button class="btn btn-success" onclick="saveMovimiento()">✓ Registrar movimiento</button>
+      </div>
+
+      <div class="card">
+        <h3>📋 Historial de movimientos</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>FECHA</th>
+                <th>INSUMO</th>
+                <th>TIPO</th>
+                <th>CANTIDAD</th>
+                <th>LOTE</th>
+                <th>STOCK RESULTANTE</th>
+                <th>OBSERVACIONES</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="movimientosTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📊 Rendimiento por insumo</h3>
+        <div id="rendimientosTable"></div>
+      </div>
+    </div>
+
+    <!-- ============ REPORTES / EXCEL ============ -->
+    <div class="page" id="page-reportes">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>Excel y Reportes</h2>
+          <p>Sincronización bidireccional con archivo Excel</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📂 Importar / Exportar</h3>
+        <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:14px;">
+          Carga el archivo Excel para sincronizar los datos. La aplicación leerá las hojas y poblará todos los módulos.
+          Al exportar, se generará un archivo con todos los datos actualizados.
+        </p>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" />
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+            📂 Importar Excel
+          </button>
+          <button class="btn btn-success" onclick="exportToExcel()">
+            💾 Exportar Excel completo
+          </button>
+          <button class="btn btn-warning" onclick="exportToExcel(true)">
+            📥 Plantilla vacía
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📊 Estructura del Excel</h3>
+        <ul style="list-style:none; line-height:1.9; font-size:0.9rem;">
+          <li>📄 <strong>CICLOS REALIZADOS AL DIA</strong> — Fecha · Ciclo realizado · Color</li>
+          <li>📄 <strong>CICLOS PENDIENTES</strong> — Pendientes para día siguiente</li>
+          <li>📄 <strong>PROGRAMACION TURNOS</strong> — Turnos generados</li>
+          <li>📄 <strong>INVENTARIO INSUMOS</strong> — Movimientos de insumos</li>
+          <li>📄 <strong>CONSUMO POR CICLO</strong> — Consumo asociado a ciclos</li>
+          <li>📄 <strong>RESUMEN</strong> — Indicadores generales</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>💾 Backup local</h3>
+        <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:14px;">
+          Los datos se guardan en memoria del navegador mientras la pestaña está abierta.
+          Para persistencia entre sesiones, descarga el JSON o el Excel.
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-secondary" onclick="exportJSON()">📥 Descargar backup JSON</button>
+          <input type="file" id="jsonInput" accept=".json" style="display:none" />
+          <button class="btn btn-secondary" onclick="document.getElementById('jsonInput').click()">📤 Cargar backup JSON</button>
+          <button class="btn btn-danger" onclick="clearAllData()">🗑️ Limpiar todos los datos</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ GOOGLE SHEETS ============ -->
+    <div class="page" id="page-gsheets">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>Sincronización Google Sheets</h2>
+          <p>Conexión directa con tu hoja de cálculo en Google Drive</p>
+        </div>
+      </div>
+
+      <div id="gsheetsConfigWarning"></div>
+
+      <div class="card">
+        <h3>🔌 Estado de la conexión</h3>
+        <div class="gsheets-status-card">
+          <div class="gsheets-stat">
+            <div class="gsheets-stat-label">Estado</div>
+            <div class="gsheets-stat-value" id="gsConnState">No conectado</div>
+          </div>
+          <div class="gsheets-stat">
+            <div class="gsheets-stat-label">Usuario</div>
+            <div class="gsheets-stat-value" id="gsUser">—</div>
+          </div>
+          <div class="gsheets-stat">
+            <div class="gsheets-stat-label">Última sincronización</div>
+            <div class="gsheets-stat-value" id="gsLastSync">Nunca</div>
+          </div>
+          <div class="gsheets-stat">
+            <div class="gsheets-stat-label">Auto-sync</div>
+            <div class="gsheets-stat-value" id="gsAutoSyncState">Activado</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-primary" id="btnConnectGoogle" onclick="handleAuthClick()">
+            🔐 Conectar con Google
+          </button>
+          <button class="btn btn-secondary" id="btnDisconnect" onclick="handleSignoutClick()" style="display:none;">
+            🚪 Desconectar
+          </button>
+          <button class="btn btn-success" id="btnPushAll" onclick="pushAllToSheets()" disabled>
+            ⬆️ Subir todo a Sheets
+          </button>
+          <button class="btn btn-warning" id="btnPullAll" onclick="pullAllFromSheets()" disabled>
+            ⬇️ Bajar todo desde Sheets
+          </button>
+          <button class="btn btn-secondary" id="btnToggleAutoSync" onclick="toggleAutoSync()">
+            🔄 Desactivar auto-sync
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>⚙️ Configuración</h3>
+        <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:14px;">
+          Pega tus credenciales de Google Cloud y el ID de tu hoja de cálculo.
+          <strong>Solo necesitas hacer esto una vez</strong> — la app las recordará.
+        </p>
+
+        <div class="form-group">
+          <label>Google Client ID
+            <span style="font-weight:normal; color:var(--text-muted); font-size:0.8rem;">
+              (de Google Cloud Console)
+            </span>
+          </label>
+          <input type="text" id="gsClientId" placeholder="123456789-abc...xyz.apps.googleusercontent.com" />
+        </div>
+
+        <div class="form-group">
+          <label>Google API Key
+            <span style="font-weight:normal; color:var(--text-muted); font-size:0.8rem;">
+              (clave restringida a Google Sheets API)
+            </span>
+          </label>
+          <input type="text" id="gsApiKey" placeholder="AIzaSy..." />
+        </div>
+
+        <div class="form-group">
+          <label>Spreadsheet ID
+            <span style="font-weight:normal; color:var(--text-muted); font-size:0.8rem;">
+              (de la URL de tu Google Sheets, entre /d/ y /edit)
+            </span>
+          </label>
+          <input type="text" id="gsSpreadsheetId" placeholder="1PrRDbl_WhO_52bmBvZANrQ6m_XlVHZr04ENGq7xOC7Y" />
+        </div>
+
+        <button class="btn btn-success" onclick="saveGSConfig()">💾 Guardar configuración</button>
+        <button class="btn btn-danger" onclick="clearGSConfig()">🗑️ Borrar configuración</button>
+      </div>
+
+      <div class="card">
+        <h3>📋 Cómo obtener las credenciales</h3>
+        <p style="color:var(--text-secondary); font-size:0.9rem; line-height:1.7;">
+          Sigue la guía detallada incluida en el archivo <strong>GUIA_GOOGLE_SHEETS_SETUP.md</strong>.
+          Resumen:
+        </p>
+        <ol style="margin-left:20px; line-height:1.9; font-size:0.9rem; color:var(--text-secondary);">
+          <li>Crea un proyecto en <a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent-cyan);">Google Cloud Console</a></li>
+          <li>Habilita <strong>Google Sheets API</strong></li>
+          <li>Configura la pantalla de consentimiento OAuth (modo "Externo")</li>
+          <li>Crea un <strong>OAuth Client ID</strong> tipo "Aplicación web"</li>
+          <li>Crea una <strong>API Key</strong> restringida a Google Sheets API</li>
+          <li>Agrega tu URL (la de GitHub Pages) a los orígenes autorizados</li>
+          <li>Agrega tu correo como "usuario de prueba"</li>
+          <li>Pega los 3 valores arriba y conecta</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h3>🔄 Cómo funciona la sincronización</h3>
+        <ul style="list-style:none; line-height:1.9; font-size:0.9rem; color:var(--text-secondary);">
+          <li>✅ <strong>Auto-sync (activado por defecto):</strong> cada cambio en la app se sube a Sheets en ~2 segundos</li>
+          <li>✅ <strong>Subir todo:</strong> reemplaza el contenido de Sheets con los datos locales</li>
+          <li>✅ <strong>Bajar todo:</strong> reemplaza los datos locales con los de Sheets</li>
+          <li>⚠️ <strong>Conflictos:</strong> la última escritura gana — coordina con tu equipo si trabajan al tiempo</li>
+          <li>📡 <strong>Sin internet:</strong> la app sigue funcionando, sincroniza cuando vuelvas a tener conexión</li>
+        </ul>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modalTitle">Confirmar</h3>
+    <div id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" id="modalConfirm">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// MÓDULO GOOGLE SHEETS API
+// ================================================================
+const GS = {
+  CLIENT_ID: '',
+  API_KEY: '',
+  SPREADSHEET_ID: '',
+  DISCOVERY_DOC: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
+  SCOPES: 'https://www.googleapis.com/auth/spreadsheets',
+  tokenClient: null,
+  gapiInited: false,
+  gisInited: false,
+  isConnected: false,
+  userEmail: '',
+  lastSync: null,
+  autoSyncEnabled: true,
+  syncTimer: null,
+  syncQueue: false,
+};
+
+// Mapa de hojas y sus rangos
+const SHEET_MAP = {
+  ciclos:       { sheet: 'CICLOS REALIZADOS AL DIA', headers: ['FECHA','CICLO REALIZADO','COLOR DEL CICLO'] },
+  pendientes:   { sheet: 'CICLOS PENDIENTES', headers: ['FECHA REGISTRO','FECHA EJECUCION','CICLOS COMPLETOS','MEDIOS CICLOS','COLOR'] },
+  turnos:       { sheet: 'PROGRAMACION TURNOS', headers: ['FECHA','OPERARIA','HORA INICIO','HORA FIN','HORAS','CICLOS ASIGNADOS','OBSERVACIONES'] },
+  movimientos:  { sheet: 'INVENTARIO INSUMOS', headers: ['FECHA','INSUMO','TIPO MOVIMIENTO','CANTIDAD','UNIDAD','LOTE','STOCK RESULTANTE','OBSERVACIONES'] },
+};
+
+// === Cargar configuración guardada ===
+function loadGSConfig() {
+  try {
+    const cfg = localStorage.getItem('gs_config');
+    if (cfg) {
+      const parsed = JSON.parse(cfg);
+      GS.CLIENT_ID = parsed.clientId || '';
+      GS.API_KEY = parsed.apiKey || '';
+      GS.SPREADSHEET_ID = parsed.spreadsheetId || '';
+      GS.autoSyncEnabled = parsed.autoSync !== false;
+    }
+  } catch (e) { console.warn('No se pudo cargar config GS', e); }
+}
+
+function saveGSConfig() {
+  GS.CLIENT_ID = document.getElementById('gsClientId').value.trim();
+  GS.API_KEY = document.getElementById('gsApiKey').value.trim();
+  GS.SPREADSHEET_ID = document.getElementById('gsSpreadsheetId').value.trim();
+
+  // Limpiar el ID por si pegan la URL completa
+  const urlMatch = GS.SPREADSHEET_ID.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  if (urlMatch) GS.SPREADSHEET_ID = urlMatch[1];
+
+  if (!GS.CLIENT_ID || !GS.API_KEY || !GS.SPREADSHEET_ID) {
+    showToast('Faltan campos por completar', 'error');
+    return;
+  }
+
+  try {
+    localStorage.setItem('gs_config', JSON.stringify({
+      clientId: GS.CLIENT_ID,
+      apiKey: GS.API_KEY,
+      spreadsheetId: GS.SPREADSHEET_ID,
+      autoSync: GS.autoSyncEnabled
+    }));
+    showToast('Configuración guardada. Recargando módulo...');
+    setTimeout(() => location.reload(), 1000);
+  } catch (e) {
+    showToast('Error al guardar: ' + e.message, 'error');
+  }
+}
+
+function clearGSConfig() {
+  showModal('¿Borrar configuración Google?',
+    '<p>Se eliminarán las credenciales guardadas. Tendrás que volver a ingresarlas.</p>',
+    () => {
+      localStorage.removeItem('gs_config');
+      GS.CLIENT_ID = '';
+      GS.API_KEY = '';
+      GS.SPREADSHEET_ID = '';
+      showToast('Configuración borrada');
+      setTimeout(() => location.reload(), 800);
+    },
+    'Sí, borrar'
+  );
+}
+
+// === Inicialización de GAPI y GIS ===
+function gapiLoaded() {
+  gapi.load('client', initializeGapiClient);
+}
+
+async function initializeGapiClient() {
+  if (!GS.API_KEY) return;
+  try {
+    await gapi.client.init({ apiKey: GS.API_KEY });
+    // Cargar el discovery doc de Sheets explícitamente
+    await gapi.client.load(GS.DISCOVERY_DOC);
+    GS.gapiInited = true;
+    console.log('GAPI + Sheets discovery OK. gapi.client.sheets:', typeof gapi.client.sheets);
+    maybeEnableButtons();
+  } catch (err) {
+    console.error('Error inicializando GAPI', err);
+    updateSyncStatus('error', 'Error de configuración');
+  }
+}
+
+// Asegura que el discovery de Sheets esté cargado antes de cualquier llamada
+async function ensureSheetsApi() {
+  if (gapi.client.sheets) return true;
+  console.warn('gapi.client.sheets no disponible, recargando discovery...');
+  try {
+    await gapi.client.load(GS.DISCOVERY_DOC);
+    return !!gapi.client.sheets;
+  } catch (e) {
+    console.error('No se pudo recargar el discovery de Sheets:', e);
+    return false;
+  }
+}
+
+function gisLoaded() {
+  if (!GS.CLIENT_ID) return;
+  try {
+    GS.tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GS.CLIENT_ID,
+      scope: GS.SCOPES,
+      callback: '', // Se establece dinámicamente
+    });
+    GS.gisInited = true;
+    maybeEnableButtons();
+  } catch (err) {
+    console.error('Error inicializando GIS', err);
+  }
+}
+
+function maybeEnableButtons() {
+  if (GS.gapiInited && GS.gisInited) {
+    document.getElementById('btnConnectGoogle').disabled = false;
+    updateSyncStatus('disconnected', 'Listo para conectar');
+  }
+}
+
+// Esperar a que las librerías estén cargadas y luego inicializar
+function waitForLibsAndInit() {
+  loadGSConfig();
+  if (!GS.CLIENT_ID || !GS.API_KEY) {
+    updateSyncStatus('disconnected', 'Sin configurar');
+    return;
+  }
+
+  let attempts = 0;
+  const maxAttempts = 30;
+  const interval = setInterval(() => {
+    attempts++;
+    if (typeof gapi !== 'undefined' && typeof google !== 'undefined' && google.accounts) {
+      clearInterval(interval);
+      gapiLoaded();
+      gisLoaded();
+    } else if (attempts >= maxAttempts) {
+      clearInterval(interval);
+      console.warn('Las librerías de Google no se cargaron');
+    }
+  }, 200);
+}
+
+// === Conectar / Desconectar ===
+function handleAuthClick() {
+  if (!GS.tokenClient) {
+    showToast('Primero guarda la configuración', 'warning');
+    return;
+  }
+
+  GS.tokenClient.callback = async (resp) => {
+    if (resp.error !== undefined) {
+      updateSyncStatus('error', 'Error de autorización');
+      showToast('Error: ' + resp.error, 'error');
+      return;
+    }
+
+    // Tras obtener el token, forzar carga del discovery de Sheets
+    // para garantizar que gapi.client.sheets esté disponible
+    try {
+      await gapi.client.load(GS.DISCOVERY_DOC);
+      console.log('Discovery Sheets cargado post-auth. gapi.client.sheets:', typeof gapi.client.sheets);
+    } catch (e) {
+      console.warn('Discovery post-auth falló, reintentando...', e);
+      await new Promise(r => setTimeout(r, 800));
+      try { await gapi.client.load(GS.DISCOVERY_DOC); } catch (e2) {
+        showToast('Error cargando API de Sheets: ' + e2.message, 'error');
+        return;
+      }
+    }
+
+    GS.isConnected = true;
+    updateSyncStatus('connected', 'Conectado');
+    showToast('✓ Conectado a Google Sheets');
+
+    await ensureSheetsExist();
+
+    document.getElementById('btnPushAll').disabled = false;
+    document.getElementById('btnPullAll').disabled = false;
+    document.getElementById('btnConnectGoogle').style.display = 'none';
+    document.getElementById('btnDisconnect').style.display = 'inline-flex';
+
+    updateGSStatusUI();
+  };
+
+  if (gapi.client.getToken() === null) {
+    GS.tokenClient.requestAccessToken({ prompt: 'consent' });
+  } else {
+    GS.tokenClient.requestAccessToken({ prompt: '' });
+  }
+}
+
+function handleSignoutClick() {
+  const token = gapi.client.getToken();
+  if (token !== null) {
+    google.accounts.oauth2.revoke(token.access_token);
+    gapi.client.setToken('');
+  }
+  GS.isConnected = false;
+  GS.userEmail = '';
+  updateSyncStatus('disconnected', 'Desconectado');
+  document.getElementById('btnPushAll').disabled = true;
+  document.getElementById('btnPullAll').disabled = true;
+  document.getElementById('btnConnectGoogle').style.display = 'inline-flex';
+  document.getElementById('btnDisconnect').style.display = 'none';
+  updateGSStatusUI();
+  showToast('Desconectado');
+}
+
+// === Estado visual ===
+function updateSyncStatus(state, text) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+  if (dot) {
+    dot.className = 'sync-dot ' + state;
+  }
+  if (txt) txt.textContent = text;
+}
+
+function updateGSStatusUI() {
+  const cs = document.getElementById('gsConnState');
+  const us = document.getElementById('gsUser');
+  const ls = document.getElementById('gsLastSync');
+  const as = document.getElementById('gsAutoSyncState');
+  if (cs) cs.textContent = GS.isConnected ? '✓ Conectado' : '✗ No conectado';
+  if (us) us.textContent = GS.userEmail || (GS.isConnected ? 'Autenticado' : '—');
+  if (ls) ls.textContent = GS.lastSync ? new Date(GS.lastSync).toLocaleString() : 'Nunca';
+  if (as) as.textContent = GS.autoSyncEnabled ? '✅ Activado' : '❌ Desactivado';
+
+  // Mostrar warning si no está configurado
+  const warn = document.getElementById('gsheetsConfigWarning');
+  if (warn) {
+    if (!GS.CLIENT_ID || !GS.API_KEY || !GS.SPREADSHEET_ID) {
+      warn.innerHTML = `<div class="config-warning">
+        ⚠️ <strong>Configura las credenciales primero.</strong> Lee la sección "Cómo obtener las credenciales" más abajo.
+      </div>`;
+    } else {
+      warn.innerHTML = '';
+    }
+  }
+
+  // Llenar campos del form
+  if (document.getElementById('gsClientId')) document.getElementById('gsClientId').value = GS.CLIENT_ID;
+  if (document.getElementById('gsApiKey')) document.getElementById('gsApiKey').value = GS.API_KEY;
+  if (document.getElementById('gsSpreadsheetId')) document.getElementById('gsSpreadsheetId').value = GS.SPREADSHEET_ID;
+}
+
+function toggleAutoSync() {
+  GS.autoSyncEnabled = !GS.autoSyncEnabled;
+  // Persistir
+  try {
+    const cfg = JSON.parse(localStorage.getItem('gs_config') || '{}');
+    cfg.autoSync = GS.autoSyncEnabled;
+    localStorage.setItem('gs_config', JSON.stringify(cfg));
+  } catch (e) {}
+
+  document.getElementById('btnToggleAutoSync').innerHTML = GS.autoSyncEnabled
+    ? '🔄 Desactivar auto-sync'
+    : '🔄 Activar auto-sync';
+  showToast(GS.autoSyncEnabled ? 'Auto-sync activado' : 'Auto-sync desactivado');
+  updateGSStatusUI();
+}
+
+// === Verificar y crear pestañas si faltan ===
+async function ensureSheetsExist() {
+  const sheetsReady = await ensureSheetsApi();
+  if (!sheetsReady) return;
+  try {
+    const meta = await gapi.client.sheets.spreadsheets.get({
+      spreadsheetId: GS.SPREADSHEET_ID
+    });
+    const existingSheets = meta.result.sheets.map(s => s.properties.title);
+    const required = Object.values(SHEET_MAP).map(m => m.sheet);
+    const missing = required.filter(name => !existingSheets.includes(name));
+
+    if (missing.length > 0) {
+      const requests = missing.map(title => ({
+        addSheet: { properties: { title } }
+      }));
+      await gapi.client.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: GS.SPREADSHEET_ID,
+        resource: { requests }
+      });
+      console.log('Pestañas creadas:', missing);
+    }
+  } catch (err) {
+    console.error('Error verificando hojas:', err);
+    if (err.status === 404) {
+      showToast('No se encontró la hoja. Verifica el Spreadsheet ID', 'error');
+    } else if (err.status === 403) {
+      showToast('Sin permisos. Verifica que tu cuenta tenga acceso a la hoja', 'error');
+    }
+  }
+}
+
+// === Convertir datos a filas para Sheets ===
+function dataToRows(type) {
+  const map = SHEET_MAP[type];
+  const rows = [map.headers]; // Primera fila: encabezados
+
+  if (type === 'ciclos') {
+    [...state.ciclos].sort((a,b) => a.fecha.localeCompare(b.fecha)).forEach(r => {
+      rows.push([formatDateDisplay(r.fecha), formatCicloText(r.ciclos, r.mediosCiclos), r.color]);
+    });
+  } else if (type === 'pendientes') {
+    [...state.pendientes].sort((a,b) => a.fechaEjecucion.localeCompare(b.fechaEjecucion)).forEach(p => {
+      rows.push([formatDateDisplay(p.fechaRegistro), formatDateDisplay(p.fechaEjecucion), p.ciclos, p.medios, p.color]);
+    });
+  } else if (type === 'turnos') {
+    [...state.turnos].sort((a,b) => a.fecha.localeCompare(b.fecha)).forEach(t => {
+      rows.push([formatDateDisplay(t.fecha), t.operaria, t.horaInicio, t.horaFin, t.horas, t.ciclosAsignados, t.observaciones || '']);
+    });
+  } else if (type === 'movimientos') {
+    const stockMap = {};
+    [...state.movimientos].sort((a,b) => a.fecha.localeCompare(b.fecha) || a.id.localeCompare(b.id)).forEach(m => {
+      if (!stockMap[m.insumo]) stockMap[m.insumo] = 0;
+      if (m.tipo === 'ENTRADA') stockMap[m.insumo] += m.cantidad;
+      else if (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') stockMap[m.insumo] -= m.cantidad;
+      else if (m.tipo === 'AGOTADO' || m.tipo === 'REEMPLAZO') stockMap[m.insumo] = 0;
+      const def = INSUMOS_DEF[m.insumo] || { unidad: '' };
+      rows.push([formatDateDisplay(m.fecha), m.insumo, m.tipo, m.cantidad, def.unidad, m.lote || '', Math.max(0, stockMap[m.insumo]).toFixed(2), m.observaciones || '']);
+    });
+  }
+  return rows;
+}
+
+// === Subir un tipo de datos a Sheets ===
+async function pushToSheets(type) {
+  if (!GS.isConnected) return false;
+
+  // Verificar que gapi.client.sheets esté disponible
+  const sheetsReady = await ensureSheetsApi();
+  if (!sheetsReady) {
+    showToast('API de Sheets no disponible. Desconecta y vuelve a conectar.', 'error');
+    return false;
+  }
+
+  const map = SHEET_MAP[type];
+  const rows = dataToRows(type);
+
+  try {
+    await gapi.client.sheets.spreadsheets.values.clear({
+      spreadsheetId: GS.SPREADSHEET_ID,
+      range: map.sheet,
+    });
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: GS.SPREADSHEET_ID,
+      range: `${map.sheet}!A1`,
+      valueInputOption: 'USER_ENTERED',
+      resource: { values: rows },
+    });
+    return true;
+  } catch (err) {
+    console.error(`Error subiendo ${type}:`, err);
+    const msg = err.result?.error?.message || err.message || JSON.stringify(err);
+    showToast(`Error al subir ${type}: ${msg}`, 'error');
+    return false;
+  }
+}
+
+async function pushAllToSheets() {
+  if (!GS.isConnected) {
+    showToast('Conecta primero a Google', 'warning');
+    return;
+  }
+  updateSyncStatus('syncing', 'Subiendo...');
+  showToast('Subiendo datos a Google Sheets...');
+
+  let ok = 0;
+  for (const type of Object.keys(SHEET_MAP)) {
+    const success = await pushToSheets(type);
+    if (success) ok++;
+  }
+
+  GS.lastSync = new Date().toISOString();
+  updateSyncStatus('connected', 'Sincronizado');
+  updateGSStatusUI();
+  showToast(`✓ ${ok}/${Object.keys(SHEET_MAP).length} hojas actualizadas`);
+}
+
+// === Descargar de Sheets ===
+async function pullFromSheets(type) {
+  if (!GS.isConnected) return null;
+  const sheetsReady = await ensureSheetsApi();
+  if (!sheetsReady) return null;
+  const map = SHEET_MAP[type];
+  try {
+    const resp = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: GS.SPREADSHEET_ID,
+      range: map.sheet,
+    });
+    return resp.result.values || [];
+  } catch (err) {
+    console.error(`Error bajando ${type}:`, err);
+    return null;
+  }
+}
+
+async function pullAllFromSheets() {
+  if (!GS.isConnected) {
+    showToast('Conecta primero a Google', 'warning');
+    return;
+  }
+
+  showModal('¿Reemplazar datos locales?',
+    '<p>Esto reemplazará todos los datos en la app con los que están en Google Sheets. <strong>Los datos locales se perderán</strong> si no los has subido antes.</p>',
+    async () => {
+      updateSyncStatus('syncing', 'Bajando...');
+      showToast('Descargando datos de Google Sheets...');
+
+      // Limpiar estado
+      state.ciclos = [];
+      state.pendientes = [];
+      state.turnos = [];
+      state.movimientos = [];
+
+      // CICLOS
+      const ciclosRows = await pullFromSheets('ciclos');
+      if (ciclosRows && ciclosRows.length > 1) {
+        for (let i = 1; i < ciclosRows.length; i++) {
+          const r = ciclosRows[i];
+          if (!r[0]) continue;
+          const fecha = parseFechaExcel(r[0]);
+          if (!fecha) continue;
+          const cicloTxt = String(r[1] || '');
+          const color = String(r[2] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE';
+          const cMatch = cicloTxt.match(/(\d+)\s*ciclo/i);
+          const mMatch = cicloTxt.match(/(\d+)\s*medio/i);
+          const ciclos = cMatch ? parseInt(cMatch[1]) : 0;
+          const medios = mMatch ? parseInt(mMatch[1]) : 0;
+          if (ciclos > 0 || medios > 0) {
+            state.ciclos.push({ id: generateId(), fecha, ciclos, mediosCiclos: medios, color });
+          }
+        }
+      }
+
+      // PENDIENTES
+      const pendRows = await pullFromSheets('pendientes');
+      if (pendRows && pendRows.length > 1) {
+        for (let i = 1; i < pendRows.length; i++) {
+          const r = pendRows[i];
+          if (!r[0]) continue;
+          const fReg = parseFechaExcel(r[0]);
+          const fEj = parseFechaExcel(r[1]) || fReg;
+          if (!fEj) continue;
+          state.pendientes.push({
+            id: generateId(),
+            fechaRegistro: fReg,
+            fechaEjecucion: fEj,
+            ciclos: parseInt(r[2]) || 0,
+            medios: parseInt(r[3]) || 0,
+            color: String(r[4] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE',
+          });
+        }
+      }
+
+      // TURNOS
+      const turnosRows = await pullFromSheets('turnos');
+      if (turnosRows && turnosRows.length > 1) {
+        for (let i = 1; i < turnosRows.length; i++) {
+          const r = turnosRows[i];
+          if (!r[0]) continue;
+          const fecha = parseFechaExcel(r[0]);
+          if (!fecha) continue;
+          state.turnos.push({
+            id: generateId(),
+            fecha,
+            operaria: String(r[1] || ''),
+            horaInicio: String(r[2] || ''),
+            horaFin: String(r[3] || ''),
+            horas: String(r[4] || ''),
+            ciclosAsignados: String(r[5] || ''),
+            observaciones: String(r[6] || ''),
+          });
+        }
+      }
+
+      // MOVIMIENTOS
+      const movRows = await pullFromSheets('movimientos');
+      if (movRows && movRows.length > 1) {
+        for (let i = 1; i < movRows.length; i++) {
+          const r = movRows[i];
+          if (!r[0]) continue;
+          const fecha = parseFechaExcel(r[0]);
+          if (!fecha) continue;
+          state.movimientos.push({
+            id: generateId(),
+            fecha,
+            insumo: String(r[1] || '').toUpperCase(),
+            tipo: String(r[2] || '').toUpperCase(),
+            cantidad: parseFloat(r[3]) || 0,
+            lote: String(r[5] || ''),
+            observaciones: String(r[7] || ''),
+          });
+        }
+      }
+
+      saveState();
+      renderCalendar();
+      renderRecordsTable();
+      renderPendientes();
+      renderTurnos();
+      refreshInsumos();
+      refreshDashboard();
+
+      GS.lastSync = new Date().toISOString();
+      updateSyncStatus('connected', 'Sincronizado');
+      updateGSStatusUI();
+      showToast(`✓ Datos descargados: ${state.ciclos.length} ciclos, ${state.pendientes.length} pendientes, ${state.turnos.length} turnos, ${state.movimientos.length} movs.`);
+    },
+    'Sí, reemplazar'
+  );
+}
+
+// === Auto-sync con debounce ===
+function scheduleAutoSync() {
+  if (!GS.isConnected || !GS.autoSyncEnabled) return;
+  if (GS.syncTimer) clearTimeout(GS.syncTimer);
+  GS.syncQueue = true;
+  updateSyncStatus('syncing', 'Pendiente...');
+
+  GS.syncTimer = setTimeout(async () => {
+    if (!GS.syncQueue) return;
+    GS.syncQueue = false;
+    updateSyncStatus('syncing', 'Sincronizando...');
+    let ok = 0;
+    for (const type of Object.keys(SHEET_MAP)) {
+      const success = await pushToSheets(type);
+      if (success) ok++;
+    }
+    GS.lastSync = new Date().toISOString();
+    if (ok === Object.keys(SHEET_MAP).length) {
+      updateSyncStatus('connected', 'Sincronizado ✓');
+    } else {
+      updateSyncStatus('error', 'Sync parcial');
+    }
+    updateGSStatusUI();
+  }, 2500); // Esperar 2.5s desde el último cambio
+}
+
+
+const state = {
+  ciclos: [],          // {id, fecha, ciclos, mediosCiclos, color}
+  pendientes: [],      // {id, fechaRegistro, fechaEjecucion, ciclos, medios, color}
+  turnos: [],          // {id, fecha, operaria, horaInicio, horaFin, horas, ciclosAsignados, observaciones}
+  movimientos: [],     // {id, fecha, insumo, tipo, cantidad, lote, observaciones, stockResultante}
+};
+
+let currentDate = new Date();
+let selectedDate = null;
+let selectedColor = 'VERDE';
+let selectedColorPend = 'VERDE';
+let chartProduccion = null;
+let chartColores = null;
+
+// Definición de insumos
+const INSUMOS_DEF = {
+  HIDROFOBICO: { nombre: 'Hidrofóbico', unidad: 'pastillas', porCiclo: 1, icon: '💊' },
+  ZIRCONIO:    { nombre: 'Zirconio',    unidad: 'unidades',  porCiclo: 1, icon: '⚪' },
+  CUARZO:      { nombre: 'Cuarzo',      unidad: 'unidades',  porCiclo: 1, icon: '💎' },
+  FILAMENTO:   { nombre: 'Filamento',   unidad: 'unidades',  porCiclo: 0, icon: '🧵' },
+  CROMO:       { nombre: 'Cromo',       unidad: 'gramos',    porCiclo: 0, icon: '⚙️' },
+  SILICIO:     { nombre: 'Silicio',     unidad: 'envases',   porCiclo: 0, icon: '🧴' },
+};
+
+// ================================================================
+// UTILIDADES
+// ================================================================
+function formatDateISO(date) {
+  if (!date) return '';
+  if (typeof date === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}/.test(date)) return date.substring(0,10);
+    date = new Date(date);
+  }
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function formatDateDisplay(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function showModal(title, bodyHtml, onConfirm, confirmLabel='Confirmar') {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  const btn = document.getElementById('modalConfirm');
+  btn.textContent = confirmLabel;
+  btn.onclick = () => { onConfirm(); closeModal(); };
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+function formatCicloText(c, m) {
+  const parts = [];
+  if (c > 0) parts.push(`${c} ciclo${c!==1?'s':''}`);
+  if (m > 0) parts.push(`${m} medio${m!==1?'s':''} ciclo${m!==1?'s':''}`);
+  return parts.join(' + ') || '—';
+}
+
+// ================================================================
+// NAVEGACIÓN
+// ================================================================
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    item.classList.add('active');
+    const page = item.dataset.page;
+    document.getElementById('page-' + page).classList.add('active');
+    if (page === 'dashboard') refreshDashboard();
+    if (page === 'insumos') refreshInsumos();
+    if (page === 'gsheets') updateGSStatusUI();
+  });
+});
+
+// ================================================================
+// MÓDULO 1: CICLOS REALIZADOS
+// ================================================================
+function renderCalendar() {
+  const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                      'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const dayLabels = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+  document.getElementById('monthTitle').textContent =
+    `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+
+  const cal = document.getElementById('calendar');
+  cal.innerHTML = '';
+
+  dayLabels.forEach(d => {
+    const lbl = document.createElement('div');
+    lbl.className = 'day-label';
+    lbl.textContent = d;
+    cal.appendChild(lbl);
+  });
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = formatDateISO(new Date());
+
+  for (let i = 0; i < firstDay; i++) {
+    const e = document.createElement('div');
+    e.className = 'day-cell empty';
+    cal.appendChild(e);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateISO = formatDateISO(new Date(year, month, day));
+    const cell = document.createElement('div');
+    cell.className = 'day-cell';
+
+    if (dateISO === today) cell.classList.add('today');
+    if (dateISO === selectedDate) cell.classList.add('selected');
+
+    const dayRecords = state.ciclos.filter(r => r.fecha === dateISO);
+    const dayPendientes = state.pendientes.filter(p => p.fechaEjecucion === dateISO);
+
+    if (dayRecords.length > 0) {
+      const colors = new Set(dayRecords.map(r => r.color));
+      if (colors.size === 2) cell.classList.add('has-data-mixed');
+      else if (colors.has('VERDE')) cell.classList.add('has-data-verde');
+      else cell.classList.add('has-data-azul');
+
+      const total = dayRecords.reduce((s,r) => s + (r.ciclos||0) + (r.mediosCiclos||0)*0.5, 0);
+      cell.innerHTML = `
+        <div class="day-number">${day}</div>
+        <div class="day-info"><strong>${total}</strong> ciclos</div>
+      `;
+    } else {
+      cell.innerHTML = `<div class="day-number">${day}</div>`;
+    }
+
+    if (dayPendientes.length > 0) cell.classList.add('has-pending');
+
+    cell.onclick = () => selectDay(dateISO);
+    cal.appendChild(cell);
+  }
+}
+
+function selectDay(dateISO) {
+  selectedDate = dateISO;
+  document.getElementById('dateInput').value = dateISO;
+  loadDayData(dateISO);
+  renderCalendar();
+  renderDaySummary(dateISO);
+}
+
+function loadDayData(dateISO) {
+  const dayRecords = state.ciclos.filter(r => r.fecha === dateISO);
+  if (dayRecords.length === 0) {
+    document.getElementById('ciclosInput').value = 0;
+    document.getElementById('mediosInput').value = 0;
+    return;
+  }
+  // Si hay un solo color cargamos sus datos al form
+  const lastRec = dayRecords[dayRecords.length-1];
+  document.getElementById('ciclosInput').value = lastRec.ciclos;
+  document.getElementById('mediosInput').value = lastRec.mediosCiclos;
+  selectColor(lastRec.color);
+}
+
+function renderDaySummary(dateISO) {
+  const cont = document.getElementById('daySummary');
+  const records = state.ciclos.filter(r => r.fecha === dateISO);
+  if (records.length === 0) {
+    cont.innerHTML = `<div class="empty-state"><h4>Sin registros</h4><p style="font-size:0.85rem;">No hay datos para este día</p></div>`;
+    return;
+  }
+  let html = `<p style="margin-bottom:10px; color:var(--text-secondary); font-size:0.9rem;">${formatDateDisplay(dateISO)}</p>`;
+  records.forEach(r => {
+    const badge = r.color === 'VERDE' ? 'badge-verde' : 'badge-azul';
+    const emoji = r.color === 'VERDE' ? '🟢' : '🔵';
+    html += `
+      <div style="background:var(--bg-input); padding:10px 12px; border-radius:6px; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span class="badge ${badge}">${emoji} ${r.color}</span>
+          <strong>${(r.ciclos + r.mediosCiclos*0.5).toFixed(1)} ciclos</strong>
+        </div>
+        <div style="font-size:0.82rem; color:var(--text-secondary);">${formatCicloText(r.ciclos, r.mediosCiclos)}</div>
+      </div>`;
+  });
+  cont.innerHTML = html;
+}
+
+function changeMonth(delta) {
+  currentDate.setMonth(currentDate.getMonth() + delta);
+  renderCalendar();
+}
+
+function goToToday() {
+  currentDate = new Date();
+  selectDay(formatDateISO(new Date()));
+}
+
+function selectColor(color) {
+  selectedColor = color;
+  document.querySelectorAll('[data-color]').forEach(el => {
+    el.classList.toggle('selected', el.dataset.color === color);
+  });
+}
+
+function selectPendColor(color) {
+  selectedColorPend = color;
+  document.querySelectorAll('[data-color-pend]').forEach(el => {
+    el.classList.toggle('selected', el.dataset.colorPend === color);
+  });
+}
+
+function saveRecord() {
+  const fecha = document.getElementById('dateInput').value;
+  const ciclos = parseInt(document.getElementById('ciclosInput').value) || 0;
+  const mediosCiclos = parseInt(document.getElementById('mediosInput').value) || 0;
+
+  if (!fecha) { showToast('Selecciona una fecha', 'error'); return; }
+  if (ciclos === 0 && mediosCiclos === 0) {
+    showToast('Ingresa al menos un ciclo', 'warning'); return;
+  }
+
+  // Reemplazar si ya existe registro mismo día + mismo color
+  const idx = state.ciclos.findIndex(r => r.fecha === fecha && r.color === selectedColor);
+  const newRec = {
+    id: idx >= 0 ? state.ciclos[idx].id : generateId(),
+    fecha, ciclos, mediosCiclos, color: selectedColor
+  };
+
+  if (idx >= 0) {
+    state.ciclos[idx] = newRec;
+    showToast('Registro actualizado');
+  } else {
+    state.ciclos.push(newRec);
+    showToast('Registro guardado');
+  }
+
+  // Auto-consumo de insumos por cada ciclo completo
+  registrarConsumoAuto(newRec);
+
+  saveState();
+  renderCalendar();
+  renderRecordsTable();
+  renderDaySummary(fecha);
+}
+
+function registrarConsumoAuto(rec) {
+  // Solo registramos consumo nuevo si no existía registro previo del mismo día/color
+  // Para evitar dobles descuentos al editar, recalculamos diferencial
+  const existing = state.movimientos.filter(m =>
+    m.fecha === rec.fecha && m.tipo === 'CONSUMO_AUTO' && m.cicloRefId === rec.id
+  );
+  // Eliminar consumos auto previos asociados a este registro
+  state.movimientos = state.movimientos.filter(m => !(m.tipo === 'CONSUMO_AUTO' && m.cicloRefId === rec.id));
+
+  const ciclosCompletos = rec.ciclos;
+  if (ciclosCompletos === 0) return;
+
+  ['HIDROFOBICO','ZIRCONIO','CUARZO'].forEach(insumo => {
+    state.movimientos.push({
+      id: generateId(),
+      fecha: rec.fecha,
+      insumo,
+      tipo: 'CONSUMO_AUTO',
+      cantidad: ciclosCompletos,
+      lote: '',
+      observaciones: `Consumo automático por ${ciclosCompletos} ciclos completos (${rec.color})`,
+      cicloRefId: rec.id,
+      color: rec.color
+    });
+  });
+}
+
+function deleteRecord(id) {
+  showModal('¿Eliminar registro?',
+    '<p>Esta acción eliminará el registro y revertirá el consumo automático asociado.</p>',
+    () => {
+      state.ciclos = state.ciclos.filter(r => r.id !== id);
+      // Eliminar consumo auto asociado
+      state.movimientos = state.movimientos.filter(m => m.cicloRefId !== id);
+      saveState();
+      renderCalendar();
+      renderRecordsTable();
+      if (selectedDate) renderDaySummary(selectedDate);
+      showToast('Registro eliminado');
+    }
+  );
+}
+
+function renderRecordsTable() {
+  const tbody = document.getElementById('recordsTable');
+  if (state.ciclos.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-state"><h4>No hay registros</h4></td></tr>`;
+    return;
+  }
+  const sorted = [...state.ciclos].sort((a,b) => b.fecha.localeCompare(a.fecha));
+  tbody.innerHTML = sorted.map(r => {
+    const badge = r.color === 'VERDE' ? 'badge-verde' : 'badge-azul';
+    const emoji = r.color === 'VERDE' ? '🟢' : '🔵';
+    return `<tr>
+      <td>${formatDateDisplay(r.fecha)}</td>
+      <td>${formatCicloText(r.ciclos, r.mediosCiclos)}</td>
+      <td><span class="badge ${badge}">${emoji} ${r.color}</span></td>
+      <td><button class="icon-btn danger" onclick="deleteRecord('${r.id}')">🗑️</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ================================================================
+// MÓDULO 2: CICLOS PENDIENTES
+// ================================================================
+function savePendiente() {
+  const fechaEj = document.getElementById('pendDate').value;
+  const ciclos = parseInt(document.getElementById('pendCiclos').value) || 0;
+  const medios = parseInt(document.getElementById('pendMedios').value) || 0;
+
+  if (!fechaEj) { showToast('Selecciona la fecha de ejecución','error'); return; }
+  if (ciclos === 0 && medios === 0) {
+    showToast('Ingresa al menos un ciclo','warning'); return;
+  }
+
+  state.pendientes.push({
+    id: generateId(),
+    fechaRegistro: formatDateISO(new Date()),
+    fechaEjecucion: fechaEj,
+    ciclos,
+    medios,
+    color: selectedColorPend
+  });
+  saveState();
+  renderPendientes();
+  renderCalendar();
+  showToast('Pendiente registrado');
+  // Limpiar form
+  document.getElementById('pendCiclos').value = 0;
+  document.getElementById('pendMedios').value = 0;
+}
+
+function renderPendientes() {
+  const tbody = document.getElementById('pendientesTable');
+  if (state.pendientes.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state"><h4>No hay pendientes registrados</h4></td></tr>`;
+    return;
+  }
+  const sorted = [...state.pendientes].sort((a,b) => b.fechaEjecucion.localeCompare(a.fechaEjecucion));
+  tbody.innerHTML = sorted.map(p => {
+    const badge = p.color === 'VERDE' ? 'badge-verde' : 'badge-azul';
+    const emoji = p.color === 'VERDE' ? '🟢' : '🔵';
+    const horas = p.ciclos * 2 + p.medios * 1;
+    return `<tr>
+      <td>${formatDateDisplay(p.fechaRegistro)}</td>
+      <td>${formatDateDisplay(p.fechaEjecucion)}</td>
+      <td><strong>${p.ciclos}</strong></td>
+      <td>${p.medios}</td>
+      <td><span class="badge ${badge}">${emoji} ${p.color}</span></td>
+      <td>${horas}h</td>
+      <td><button class="icon-btn danger" onclick="deletePendiente('${p.id}')">🗑️</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function deletePendiente(id) {
+  showModal('¿Eliminar pendiente?', '<p>Se eliminará este registro de pendientes.</p>', () => {
+    state.pendientes = state.pendientes.filter(p => p.id !== id);
+    saveState();
+    renderPendientes();
+    renderCalendar();
+    showToast('Pendiente eliminado');
+  });
+}
+
+// ================================================================
+// MÓDULO 3: PROGRAMACIÓN DE TURNOS
+// ================================================================
+function generarTurnos() {
+  const fecha = document.getElementById('turnoFecha').value;
+  if (!fecha) { showToast('Selecciona fecha','error'); return; }
+
+  const op1 = document.getElementById('op1Nombre').value || 'Operaria 1';
+  const op2 = document.getElementById('op2Nombre').value || 'Operaria 2';
+  const horaInicio = parseInt(document.getElementById('horaInicio').value);
+
+  // Pendientes para esa fecha
+  const pendDia = state.pendientes.filter(p => p.fechaEjecucion === fecha);
+  if (pendDia.length === 0) {
+    showToast('No hay pendientes registrados para esa fecha','warning');
+    return;
+  }
+
+  const totalCiclos = pendDia.reduce((s,p) => s + p.ciclos, 0);
+  const totalMedios = pendDia.reduce((s,p) => s + p.medios, 0);
+  const horasNecesarias = totalCiclos * 2 + totalMedios * 1;
+
+  // Verificar si es domingo
+  const fechaObj = new Date(fecha + 'T12:00:00');
+  const diaSemana = fechaObj.getDay(); // 0=domingo, 6=sábado
+
+  let observaciones = [];
+
+  if (diaSemana === 0) {
+    // Domingo: solo si > 5 ciclos pendientes para lunes (verificamos pendientes lunes siguiente)
+    const lunes = new Date(fechaObj);
+    lunes.setDate(lunes.getDate() + 1);
+    const lunesISO = formatDateISO(lunes);
+    const pendLunes = state.pendientes.filter(p => p.fechaEjecucion === lunesISO);
+    const ciclosLunes = pendLunes.reduce((s,p) => s + p.ciclos + p.medios * 0.5, 0);
+    if (ciclosLunes <= 5) {
+      showToast(`Domingo no se programa: solo ${ciclosLunes} ciclos pendientes para lunes (mín. 5)`, 'warning');
+      return;
+    }
+    observaciones.push(`Turno especial domingo (${ciclosLunes} ciclos pend. lunes)`);
+  }
+
+  // Eliminar turnos previos de esa fecha
+  state.turnos = state.turnos.filter(t => t.fecha !== fecha);
+
+  // Repartir parejo entre las 2 operarias
+  const horasPorOp = horasNecesarias / 2;
+
+  // Limitar a 8h por turno
+  let horasOp1 = Math.min(horasPorOp, 8);
+  let horasOp2 = Math.min(horasPorOp, 8);
+
+  // Si necesidad excede 16h totales = no alcanza con 2 operarias en un día
+  let horasNoAsignadas = 0;
+  if (horasNecesarias > 16) {
+    horasOp1 = 8;
+    horasOp2 = 8;
+    horasNoAsignadas = horasNecesarias - 16;
+    observaciones.push(`⚠️ ${horasNoAsignadas}h no caben en jornada (excede 16h)`);
+  }
+
+  // Calcular horas fin
+  const tope9pm = 21; // 9pm
+  const cierreDespacho = 16.5; // 4:30pm
+  const horaFinOp1Decimal = horaInicio + horasOp1;
+  const horaFinOp2Decimal = horaInicio + horasOp2;
+
+  // Verificar tope 9pm
+  if (horaFinOp1Decimal > tope9pm || horaFinOp2Decimal > tope9pm) {
+    observaciones.push(`⚠️ Turno excede tope 9:00 p.m. (revisar carga)`);
+  }
+
+  // Calcular ciclos asignados aproximados (1 cara = 1h, 1 ciclo = 2h)
+  const ciclosOp1 = Math.floor(horasOp1 / 2);
+  const ciclosOp2 = Math.floor(horasOp2 / 2);
+  const mediosTotales = totalMedios;
+
+  const fmtHora = (h) => {
+    const hh = Math.floor(h);
+    const mm = Math.round((h - hh) * 60);
+    const ampm = hh >= 12 ? 'p.m.' : 'a.m.';
+    const h12 = hh > 12 ? hh - 12 : (hh === 0 ? 12 : hh);
+    return `${h12}:${String(mm).padStart(2,'0')} ${ampm}`;
+  };
+
+  const obsBase = observaciones.join(' · ');
+
+  // Antes del cierre de despacho?
+  let obsOp1 = obsBase;
+  let obsOp2 = obsBase;
+  if (horaFinOp1Decimal > cierreDespacho) {
+    obsOp1 += (obsOp1?' · ':'') + `Parte se despacha al día siguiente`;
+  }
+  if (horaFinOp2Decimal > cierreDespacho) {
+    obsOp2 += (obsOp2?' · ':'') + `Parte se despacha al día siguiente`;
+  }
+
+  state.turnos.push({
+    id: generateId(),
+    fecha,
+    operaria: op1,
+    horaInicio: fmtHora(horaInicio),
+    horaFin: fmtHora(horaFinOp1Decimal),
+    horas: horasOp1.toFixed(1),
+    ciclosAsignados: `${ciclosOp1} ciclos + ${Math.ceil(mediosTotales/2)} medios`,
+    observaciones: obsOp1
+  });
+
+  state.turnos.push({
+    id: generateId(),
+    fecha,
+    operaria: op2,
+    horaInicio: fmtHora(horaInicio),
+    horaFin: fmtHora(horaFinOp2Decimal),
+    horas: horasOp2.toFixed(1),
+    ciclosAsignados: `${ciclosOp2} ciclos + ${Math.floor(mediosTotales/2)} medios`,
+    observaciones: obsOp2
+  });
+
+  saveState();
+  renderTurnos(fecha);
+  showToast(`Turnos generados — ${horasNecesarias}h de trabajo total`);
+}
+
+function renderTurnos(filterFecha = null) {
+  const cont = document.getElementById('turnosContainer');
+  const turnos = filterFecha
+    ? state.turnos.filter(t => t.fecha === filterFecha)
+    : state.turnos;
+
+  if (turnos.length === 0) {
+    cont.innerHTML = `<div class="empty-state"><h4>No hay turnos generados</h4></div>`;
+    return;
+  }
+
+  // Agrupar por fecha
+  const groups = {};
+  turnos.forEach(t => {
+    if (!groups[t.fecha]) groups[t.fecha] = [];
+    groups[t.fecha].push(t);
+  });
+
+  let html = '';
+  Object.keys(groups).sort().reverse().forEach(fecha => {
+    html += `<h4 style="color:var(--accent-cyan); margin:14px 0 10px;">📅 ${formatDateDisplay(fecha)}</h4>`;
+    groups[fecha].forEach(t => {
+      html += `<div class="shift-card">
+        <div class="shift-header">
+          <strong>${t.operaria}</strong>
+          <div class="shift-time">${t.horaInicio} → ${t.horaFin}</div>
+        </div>
+        <div class="shift-grid">
+          <div class="shift-info-item">
+            <span class="shift-info-label">Horas</span>
+            <span class="shift-info-value">${t.horas}h</span>
+          </div>
+          <div class="shift-info-item">
+            <span class="shift-info-label">Ciclos asignados</span>
+            <span class="shift-info-value">${t.ciclosAsignados}</span>
+          </div>
+        </div>
+        ${t.observaciones ? `<div style="margin-top:10px; font-size:0.82rem; color:var(--text-muted);">📝 ${t.observaciones}</div>` : ''}
+        <div style="margin-top:10px; text-align:right;">
+          <button class="icon-btn danger" onclick="deleteTurno('${t.id}')">🗑️ Eliminar</button>
+        </div>
+      </div>`;
+    });
+  });
+  cont.innerHTML = html;
+}
+
+function deleteTurno(id) {
+  state.turnos = state.turnos.filter(t => t.id !== id);
+  saveState();
+  renderTurnos();
+  showToast('Turno eliminado');
+}
+
+// ================================================================
+// MÓDULO 4: INSUMOS
+// ================================================================
+function calcularStockPorInsumo(insumo) {
+  // Sumamos entradas, restamos consumos y agotados
+  const movs = state.movimientos.filter(m => m.insumo === insumo);
+  let stock = 0;
+  movs.forEach(m => {
+    if (m.tipo === 'ENTRADA') stock += m.cantidad;
+    else if (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') stock -= m.cantidad;
+    else if (m.tipo === 'AGOTADO') stock = 0;
+    else if (m.tipo === 'REEMPLAZO') stock = 0; // filamento se rompe = se reemplaza
+  });
+  return Math.max(0, stock);
+}
+
+function calcularConsumoPromedioDiario(insumo) {
+  const movs = state.movimientos.filter(m =>
+    m.insumo === insumo && (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO')
+  );
+  if (movs.length === 0) return 0;
+  const fechas = [...new Set(movs.map(m => m.fecha))];
+  if (fechas.length === 0) return 0;
+  const total = movs.reduce((s,m) => s + m.cantidad, 0);
+  return total / fechas.length;
+}
+
+function calcularDiasRestantes(insumo) {
+  const stock = calcularStockPorInsumo(insumo);
+  const consumoPromedio = calcularConsumoPromedioDiario(insumo);
+  if (consumoPromedio === 0) return Infinity;
+  return stock / consumoPromedio;
+}
+
+function calcularRendimientoPromedio(insumo) {
+  // Para Cromo y Silicio: gramos/envases por ciclo según color
+  if (insumo === 'CROMO' || insumo === 'SILICIO') {
+    const consumos = state.movimientos.filter(m =>
+      m.insumo === insumo && m.tipo === 'CONSUMO'
+    );
+    if (consumos.length === 0) return null;
+
+    // Promedio por color
+    const porColor = { VERDE: { cant: 0, ciclos: 0 }, AZUL: { cant: 0, ciclos: 0 } };
+    consumos.forEach(c => {
+      // Ciclos del mismo día y color
+      const ciclosDia = state.ciclos.filter(r =>
+        r.fecha === c.fecha && (!c.color || r.color === c.color)
+      ).reduce((s,r) => s + r.ciclos, 0);
+
+      const color = c.color || 'VERDE';
+      if (porColor[color]) {
+        porColor[color].cant += c.cantidad;
+        porColor[color].ciclos += ciclosDia;
+      }
+    });
+
+    return {
+      verde: porColor.VERDE.ciclos > 0 ? (porColor.VERDE.cant / porColor.VERDE.ciclos).toFixed(2) : '—',
+      azul: porColor.AZUL.ciclos > 0 ? (porColor.AZUL.cant / porColor.AZUL.ciclos).toFixed(2) : '—',
+    };
+  }
+  return null;
+}
+
+function obtenerLoteActivo(insumo) {
+  // El último lote ingresado que aún no se haya agotado
+  const movs = state.movimientos
+    .filter(m => m.insumo === insumo)
+    .sort((a,b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
+
+  for (const m of movs) {
+    if (m.tipo === 'ENTRADA' && m.lote) return m.lote;
+    if (m.tipo === 'AGOTADO') break;
+  }
+  return null;
+}
+
+function saveMovimiento() {
+  const fecha = document.getElementById('movFecha').value;
+  const insumo = document.getElementById('movInsumo').value;
+  const tipo = document.getElementById('movTipo').value;
+  const cantidad = parseFloat(document.getElementById('movCantidad').value) || 0;
+  const lote = document.getElementById('movLote').value;
+  const obs = document.getElementById('movObs').value;
+
+  if (!fecha) { showToast('Selecciona una fecha','error'); return; }
+  if (cantidad <= 0 && tipo !== 'AGOTADO' && tipo !== 'REEMPLAZO') {
+    showToast('Cantidad debe ser mayor a 0', 'warning'); return;
+  }
+
+  state.movimientos.push({
+    id: generateId(),
+    fecha, insumo, tipo, cantidad, lote, observaciones: obs
+  });
+
+  saveState();
+  refreshInsumos();
+  showToast('Movimiento registrado');
+  document.getElementById('movCantidad').value = 0;
+  document.getElementById('movLote').value = '';
+  document.getElementById('movObs').value = '';
+}
+
+function deleteMovimiento(id) {
+  state.movimientos = state.movimientos.filter(m => m.id !== id);
+  saveState();
+  refreshInsumos();
+  showToast('Movimiento eliminado');
+}
+
+function refreshInsumos() {
+  renderInsumosCards();
+  renderMovimientos();
+  renderRendimientos();
+  renderInsumosAlertas();
+}
+
+function renderInsumosCards() {
+  const cont = document.getElementById('insumosCards');
+  let html = '';
+  Object.keys(INSUMOS_DEF).forEach(key => {
+    const def = INSUMOS_DEF[key];
+    const stock = calcularStockPorInsumo(key);
+    const consumoProm = calcularConsumoPromedioDiario(key);
+    const diasRest = calcularDiasRestantes(key);
+    const lote = obtenerLoteActivo(key);
+
+    // Calcular % de stock vs entrada inicial del lote
+    const ultimaEntrada = state.movimientos
+      .filter(m => m.insumo === key && m.tipo === 'ENTRADA')
+      .sort((a,b) => b.fecha.localeCompare(a.fecha))[0];
+    const stockInicial = ultimaEntrada ? ultimaEntrada.cantidad : stock;
+    const porc = stockInicial > 0 ? (stock / stockInicial) * 100 : 0;
+
+    // Determinar nivel de alerta
+    let alertColor = 'var(--accent-verde)';
+    let alertBadge = '';
+    if (porc < 20 || (diasRest !== Infinity && diasRest < 7)) {
+      alertColor = 'var(--accent-red)';
+      alertBadge = '<span class="badge badge-red">⚠️ ALERTA</span>';
+    } else if (porc < 35 || (diasRest !== Infinity && diasRest < 14)) {
+      alertColor = 'var(--accent-amber)';
+      alertBadge = '<span class="badge badge-amber">⚠ Bajo</span>';
+    }
+
+    html += `<div class="insumo-card" style="border-left:3px solid ${alertColor};">
+      <h4>
+        <span>${def.icon} ${def.nombre}</span>
+        ${alertBadge}
+      </h4>
+      <div class="insumo-stat">
+        <span class="insumo-stat-label">Stock actual</span>
+        <span class="insumo-stat-value">${stock.toFixed(stock % 1 === 0 ? 0 : 2)} ${def.unidad}</span>
+      </div>
+      <div class="insumo-stat">
+        <span class="insumo-stat-label">Lote activo</span>
+        <span class="insumo-stat-value">${lote || '—'}</span>
+      </div>
+      <div class="insumo-stat">
+        <span class="insumo-stat-label">Consumo promedio/día</span>
+        <span class="insumo-stat-value">${consumoProm.toFixed(2)} ${def.unidad}</span>
+      </div>
+      <div class="insumo-stat">
+        <span class="insumo-stat-label">Días restantes</span>
+        <span class="insumo-stat-value">${diasRest === Infinity ? '∞' : diasRest.toFixed(1) + ' días'}</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${Math.min(100,porc)}%; background:${alertColor};"></div>
+      </div>
+    </div>`;
+  });
+  cont.innerHTML = html;
+}
+
+function renderMovimientos() {
+  const tbody = document.getElementById('movimientosTable');
+  if (state.movimientos.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><h4>No hay movimientos</h4></td></tr>`;
+    return;
+  }
+  const sorted = [...state.movimientos].sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+  // Calcular stock acumulado por insumo
+  const stockAcum = {};
+  Object.keys(INSUMOS_DEF).forEach(k => stockAcum[k] = 0);
+  // Procesar de antiguo a nuevo para tener stock real
+  const cronological = [...state.movimientos].sort((a,b) =>
+    a.fecha.localeCompare(b.fecha) || a.id.localeCompare(b.id));
+  const stockMap = {};
+  cronological.forEach(m => {
+    if (!stockMap[m.insumo]) stockMap[m.insumo] = 0;
+    if (m.tipo === 'ENTRADA') stockMap[m.insumo] += m.cantidad;
+    else if (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') stockMap[m.insumo] -= m.cantidad;
+    else if (m.tipo === 'AGOTADO' || m.tipo === 'REEMPLAZO') stockMap[m.insumo] = 0;
+    m._stockSnapshot = Math.max(0, stockMap[m.insumo]);
+  });
+
+  tbody.innerHTML = sorted.map(m => {
+    const def = INSUMOS_DEF[m.insumo];
+    const tipoLabels = {
+      ENTRADA: '<span class="badge badge-verde">📥 Entrada</span>',
+      INICIO_USO: '<span class="badge badge-cyan">▶️ Inicio uso</span>',
+      AGOTADO: '<span class="badge badge-red">🔚 Agotado</span>',
+      CONSUMO: '<span class="badge badge-amber">⚙️ Consumo</span>',
+      CONSUMO_AUTO: '<span class="badge badge-azul">🤖 Auto</span>',
+      REEMPLAZO: '<span class="badge badge-amber">🔄 Reemplazo</span>',
+    };
+    return `<tr>
+      <td>${formatDateDisplay(m.fecha)}</td>
+      <td>${def ? def.icon + ' ' + def.nombre : m.insumo}</td>
+      <td>${tipoLabels[m.tipo] || m.tipo}</td>
+      <td><strong>${m.cantidad}</strong> ${def?def.unidad:''}</td>
+      <td>${m.lote || '—'}</td>
+      <td>${(m._stockSnapshot || 0).toFixed(2)}</td>
+      <td style="font-size:0.82rem;">${m.observaciones || '—'}</td>
+      <td><button class="icon-btn danger" onclick="deleteMovimiento('${m.id}')">🗑️</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRendimientos() {
+  const cont = document.getElementById('rendimientosTable');
+  let html = '<div class="table-wrapper"><table><thead><tr><th>Insumo</th><th>Stock actual</th><th>Total consumido</th><th>Rendimiento promedio</th></tr></thead><tbody>';
+
+  Object.keys(INSUMOS_DEF).forEach(key => {
+    const def = INSUMOS_DEF[key];
+    const stock = calcularStockPorInsumo(key);
+    const totalConsumido = state.movimientos
+      .filter(m => m.insumo === key && (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO'))
+      .reduce((s,m) => s + m.cantidad, 0);
+
+    let rendimiento;
+    if (key === 'CROMO' || key === 'SILICIO') {
+      const r = calcularRendimientoPromedio(key);
+      if (r) {
+        rendimiento = `🟢 ${r.verde} ${def.unidad}/ciclo · 🔵 ${r.azul} ${def.unidad}/ciclo`;
+      } else {
+        rendimiento = 'Sin datos suficientes';
+      }
+    } else if (key === 'FILAMENTO') {
+      const reemplazos = state.movimientos.filter(m => m.insumo === key && m.tipo === 'REEMPLAZO').length;
+      rendimiento = `${reemplazos} reemplazos registrados`;
+    } else {
+      rendimiento = '1 unidad por ciclo completo';
+    }
+
+    html += `<tr>
+      <td>${def.icon} <strong>${def.nombre}</strong></td>
+      <td>${stock.toFixed(2)} ${def.unidad}</td>
+      <td>${totalConsumido.toFixed(2)} ${def.unidad}</td>
+      <td>${rendimiento}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  cont.innerHTML = html;
+}
+
+function renderInsumosAlertas() {
+  const cont = document.getElementById('insumosAlertas');
+  let alertas = [];
+
+  Object.keys(INSUMOS_DEF).forEach(key => {
+    const def = INSUMOS_DEF[key];
+    const stock = calcularStockPorInsumo(key);
+    const diasRest = calcularDiasRestantes(key);
+
+    const ultimaEntrada = state.movimientos
+      .filter(m => m.insumo === key && m.tipo === 'ENTRADA')
+      .sort((a,b) => b.fecha.localeCompare(a.fecha))[0];
+    const stockInicial = ultimaEntrada ? ultimaEntrada.cantidad : stock;
+    const porc = stockInicial > 0 ? (stock / stockInicial) * 100 : 0;
+
+    if (porc < 20 && diasRest !== Infinity && diasRest < 7) {
+      alertas.push({tipo:'danger', texto:`<strong>${def.nombre}</strong>: stock crítico (${stock.toFixed(2)} ${def.unidad}, ${diasRest.toFixed(1)} días). REPONER URGENTE.`});
+    } else if (porc < 20) {
+      alertas.push({tipo:'warning', texto:`<strong>${def.nombre}</strong>: stock bajo (${porc.toFixed(0)}% del lote inicial).`});
+    } else if (diasRest !== Infinity && diasRest < 7) {
+      alertas.push({tipo:'warning', texto:`<strong>${def.nombre}</strong>: durará menos de ${Math.ceil(diasRest)} días al ritmo actual.`});
+    }
+  });
+
+  if (alertas.length === 0) {
+    cont.innerHTML = '<div class="alert alert-success"><span>✓</span><span>Todos los insumos en niveles adecuados.</span></div>';
+  } else {
+    cont.innerHTML = alertas.map(a =>
+      `<div class="alert alert-${a.tipo}"><span>⚠️</span><span>${a.texto}</span></div>`
+    ).join('');
+  }
+}
+
+// ================================================================
+// DASHBOARD
+// ================================================================
+function refreshDashboard() {
+  const today = formatDateISO(new Date());
+  const tomorrow = formatDateISO(new Date(Date.now() + 86400000));
+
+  // Ciclos hoy
+  const cicHoy = state.ciclos.filter(r => r.fecha === today);
+  const totalHoy = cicHoy.reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
+  const ciclosHoy = cicHoy.reduce((s,r) => s + r.ciclos, 0);
+  const mediosHoy = cicHoy.reduce((s,r) => s + r.mediosCiclos, 0);
+  document.getElementById('statCiclosHoy').textContent = totalHoy;
+  document.getElementById('statCiclosHoyDetail').textContent =
+    `${ciclosHoy} ciclos completos · ${mediosHoy} medios`;
+
+  // Esta semana
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  const mondayISO = formatDateISO(monday);
+  const totalSem = state.ciclos.filter(r => r.fecha >= mondayISO && r.fecha <= today)
+    .reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
+  document.getElementById('statCiclosSemana').textContent = totalSem;
+
+  // Pendientes mañana
+  const pendMan = state.pendientes.filter(p => p.fechaEjecucion === tomorrow);
+  const totalPend = pendMan.reduce((s,p) => s + p.ciclos + p.medios*0.5, 0);
+  document.getElementById('statPendientes').textContent = totalPend;
+  const turnosManana = state.turnos.filter(t => t.fecha === tomorrow);
+  document.getElementById('statPendientesDetail').textContent =
+    turnosManana.length > 0 ? `${turnosManana.length} turnos programados` : 'Sin programación';
+
+  // Mes actual
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth()+1).padStart(2,'0');
+  const prefix = `${yyyy}-${mm}`;
+  const cicMes = state.ciclos.filter(r => r.fecha.startsWith(prefix));
+  const totalMes = cicMes.reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
+  const verdeMes = cicMes.filter(r => r.color === 'VERDE').reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
+  const azulMes = cicMes.filter(r => r.color === 'AZUL').reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
+  document.getElementById('statCiclosMes').textContent = totalMes;
+  document.getElementById('statCiclosMesDetail').textContent = `${verdeMes} verde · ${azulMes} azul`;
+
+  // Alertas
+  let countAlertas = 0;
+  Object.keys(INSUMOS_DEF).forEach(key => {
+    const stock = calcularStockPorInsumo(key);
+    const diasRest = calcularDiasRestantes(key);
+    const ultimaEntrada = state.movimientos
+      .filter(m => m.insumo === key && m.tipo === 'ENTRADA')
+      .sort((a,b) => b.fecha.localeCompare(a.fecha))[0];
+    const stockInicial = ultimaEntrada ? ultimaEntrada.cantidad : stock;
+    const porc = stockInicial > 0 ? (stock / stockInicial) * 100 : 100;
+    if (porc < 20 || (diasRest !== Infinity && diasRest < 7)) countAlertas++;
+  });
+  document.getElementById('statAlertas').textContent = countAlertas;
+
+  // Alertas en dashboard
+  const alertCont = document.getElementById('alertContainer');
+  const alertas = [];
+  if (totalPend > 0 && turnosManana.length === 0) {
+    alertas.push(`<div class="alert alert-warning"><span>⚠️</span><span>Hay <strong>${totalPend} ciclos pendientes</strong> para mañana sin turnos programados.</span></div>`);
+  }
+  if (countAlertas > 0) {
+    alertas.push(`<div class="alert alert-danger"><span>🚨</span><span><strong>${countAlertas} insumo(s)</strong> requieren reposición. Ve al módulo de insumos.</span></div>`);
+  }
+  alertCont.innerHTML = alertas.join('');
+
+  // Charts
+  renderCharts();
+  renderDashboardInsumos();
+}
+
+function renderCharts() {
+  // Producción últimos 14 días
+  const labels = [];
+  const dataVerde = [];
+  const dataAzul = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const iso = formatDateISO(d);
+    labels.push(d.getDate() + '/' + (d.getMonth()+1));
+    const recs = state.ciclos.filter(r => r.fecha === iso);
+    dataVerde.push(recs.filter(r=>r.color==='VERDE').reduce((s,r)=>s+r.ciclos+r.mediosCiclos*0.5,0));
+    dataAzul.push(recs.filter(r=>r.color==='AZUL').reduce((s,r)=>s+r.ciclos+r.mediosCiclos*0.5,0));
+  }
+
+  if (chartProduccion) chartProduccion.destroy();
+  const ctx1 = document.getElementById('chartProduccion');
+  chartProduccion = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Verde', data: dataVerde, backgroundColor: '#10b981' },
+        { label: 'Azul',  data: dataAzul,  backgroundColor: '#3b82f6' }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8' } } },
+      scales: {
+        x: { stacked: true, ticks: {color:'#94a3b8'}, grid: {color:'#2d3548'} },
+        y: { stacked: true, ticks: {color:'#94a3b8'}, grid: {color:'#2d3548'} }
+      }
+    }
+  });
+
+  // Distribución colores mes
+  const now = new Date();
+  const prefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const cicMes = state.ciclos.filter(r => r.fecha.startsWith(prefix));
+  const verdeMes = cicMes.filter(r=>r.color==='VERDE').reduce((s,r)=>s+r.ciclos+r.mediosCiclos*0.5,0);
+  const azulMes = cicMes.filter(r=>r.color==='AZUL').reduce((s,r)=>s+r.ciclos+r.mediosCiclos*0.5,0);
+
+  if (chartColores) chartColores.destroy();
+  const ctx2 = document.getElementById('chartColores');
+  chartColores = new Chart(ctx2, {
+    type: 'doughnut',
+    data: {
+      labels: ['Verde', 'Azul'],
+      datasets: [{ data: [verdeMes, azulMes], backgroundColor: ['#10b981', '#3b82f6'], borderColor:'#1c2333', borderWidth:3 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 15 } } }
+    }
+  });
+}
+
+function renderDashboardInsumos() {
+  const cont = document.getElementById('dashboardInsumos');
+  let html = '';
+  Object.keys(INSUMOS_DEF).forEach(key => {
+    const def = INSUMOS_DEF[key];
+    const stock = calcularStockPorInsumo(key);
+    const ultimaEntrada = state.movimientos
+      .filter(m => m.insumo === key && m.tipo === 'ENTRADA')
+      .sort((a,b) => b.fecha.localeCompare(a.fecha))[0];
+    const stockInicial = ultimaEntrada ? ultimaEntrada.cantidad : stock;
+    const porc = stockInicial > 0 ? (stock / stockInicial) * 100 : 0;
+
+    let color = 'var(--accent-verde)';
+    if (porc < 20) color = 'var(--accent-red)';
+    else if (porc < 35) color = 'var(--accent-amber)';
+
+    html += `<div class="insumo-card" style="border-left:3px solid ${color};">
+      <h4>${def.icon} ${def.nombre}</h4>
+      <div class="insumo-stat">
+        <span class="insumo-stat-label">Stock</span>
+        <span class="insumo-stat-value">${stock.toFixed(stock%1===0?0:2)} ${def.unidad}</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${Math.min(100,porc)}%; background:${color};"></div>
+      </div>
+    </div>`;
+  });
+  cont.innerHTML = html;
+}
+
+// ================================================================
+// SINCRONIZACIÓN EXCEL
+// ================================================================
+function exportToExcel(emptyTemplate=false) {
+  const wb = XLSX.utils.book_new();
+
+  // === HOJA 1: CICLOS REALIZADOS AL DIA ===
+  const data1 = [['CONTROL CICLOS REALIZADOS AL DIA','',''], ['FECHA','CICLO REALIZADO','COLOR DEL CICLO']];
+  if (!emptyTemplate) {
+    [...state.ciclos].sort((a,b) => a.fecha.localeCompare(b.fecha)).forEach(r => {
+      data1.push([formatDateDisplay(r.fecha), formatCicloText(r.ciclos, r.mediosCiclos), r.color]);
+    });
+  }
+  const ws1 = XLSX.utils.aoa_to_sheet(data1);
+  ws1['!cols'] = [{wch:18},{wch:30},{wch:22}];
+  ws1['!merges'] = [{s:{r:0,c:0},e:{r:0,c:2}}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'CICLOS REALIZADOS AL DIA');
+
+  // === HOJA 2: CICLOS PENDIENTES ===
+  const data2 = [['CICLOS PENDIENTES PARA EL DIA SIGUIENTE','','','',''],
+                 ['FECHA REGISTRO','FECHA EJECUCION','CICLOS COMPLETOS','MEDIOS CICLOS','COLOR']];
+  if (!emptyTemplate) {
+    [...state.pendientes].sort((a,b) => a.fechaEjecucion.localeCompare(b.fechaEjecucion)).forEach(p => {
+      data2.push([formatDateDisplay(p.fechaRegistro), formatDateDisplay(p.fechaEjecucion), p.ciclos, p.medios, p.color]);
+    });
+  }
+  const ws2 = XLSX.utils.aoa_to_sheet(data2);
+  ws2['!cols'] = [{wch:18},{wch:18},{wch:20},{wch:18},{wch:16}];
+  ws2['!merges'] = [{s:{r:0,c:0},e:{r:0,c:4}}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'CICLOS PENDIENTES');
+
+  // === HOJA 3: TURNOS ===
+  const data3 = [['PROGRAMACION DE TURNOS DE ANTIRREFLEJO','','','','','',''],
+                 ['FECHA','OPERARIA','HORA INICIO','HORA FIN','HORAS','CICLOS ASIGNADOS','OBSERVACIONES']];
+  if (!emptyTemplate) {
+    [...state.turnos].sort((a,b) => a.fecha.localeCompare(b.fecha)).forEach(t => {
+      data3.push([formatDateDisplay(t.fecha), t.operaria, t.horaInicio, t.horaFin, t.horas, t.ciclosAsignados, t.observaciones || '']);
+    });
+  }
+  const ws3 = XLSX.utils.aoa_to_sheet(data3);
+  ws3['!cols'] = [{wch:16},{wch:18},{wch:14},{wch:14},{wch:10},{wch:18},{wch:30}];
+  ws3['!merges'] = [{s:{r:0,c:0},e:{r:0,c:6}}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'PROGRAMACION TURNOS');
+
+  // === HOJA 4: INVENTARIO ===
+  const data4 = [['INVENTARIO Y MOVIMIENTOS DE INSUMOS','','','','','','',''],
+                 ['FECHA','INSUMO','TIPO MOVIMIENTO','CANTIDAD','UNIDAD','LOTE','STOCK RESULTANTE','OBSERVACIONES']];
+  if (!emptyTemplate) {
+    // Calcular stock acumulado
+    const stockMap = {};
+    [...state.movimientos].sort((a,b) => a.fecha.localeCompare(b.fecha) || a.id.localeCompare(b.id)).forEach(m => {
+      if (!stockMap[m.insumo]) stockMap[m.insumo] = 0;
+      if (m.tipo === 'ENTRADA') stockMap[m.insumo] += m.cantidad;
+      else if (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') stockMap[m.insumo] -= m.cantidad;
+      else if (m.tipo === 'AGOTADO' || m.tipo === 'REEMPLAZO') stockMap[m.insumo] = 0;
+      const def = INSUMOS_DEF[m.insumo] || {unidad:''};
+      data4.push([formatDateDisplay(m.fecha), m.insumo, m.tipo, m.cantidad, def.unidad, m.lote || '', Math.max(0,stockMap[m.insumo]).toFixed(2), m.observaciones || '']);
+    });
+  }
+  const ws4 = XLSX.utils.aoa_to_sheet(data4);
+  ws4['!cols'] = [{wch:14},{wch:18},{wch:18},{wch:12},{wch:10},{wch:14},{wch:16},{wch:28}];
+  ws4['!merges'] = [{s:{r:0,c:0},e:{r:0,c:7}}];
+  XLSX.utils.book_append_sheet(wb, ws4, 'INVENTARIO INSUMOS');
+
+  // === HOJA 5: CONSUMO POR CICLO ===
+  const data5 = [['REGISTRO DE CONSUMO DE INSUMOS POR CICLO','','','','',''],
+                 ['FECHA','INSUMO','CANT. CONSUMIDA','UNIDAD','CICLOS ASOCIADOS','COLOR AR']];
+  if (!emptyTemplate) {
+    state.movimientos.filter(m => m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO').forEach(m => {
+      const def = INSUMOS_DEF[m.insumo] || {unidad:''};
+      const ciclosDia = state.ciclos.filter(r => r.fecha === m.fecha)
+        .reduce((s,r) => s + r.ciclos, 0);
+      data5.push([formatDateDisplay(m.fecha), m.insumo, m.cantidad, def.unidad, ciclosDia, m.color || '—']);
+    });
+  }
+  const ws5 = XLSX.utils.aoa_to_sheet(data5);
+  ws5['!cols'] = [{wch:14},{wch:18},{wch:16},{wch:10},{wch:18},{wch:14}];
+  ws5['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}}];
+  XLSX.utils.book_append_sheet(wb, ws5, 'CONSUMO POR CICLO');
+
+  // === HOJA 6: RESUMEN ===
+  const now = new Date();
+  const prefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const cicMes = state.ciclos.filter(r => r.fecha.startsWith(prefix));
+  const totalMes = cicMes.reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
+  const verdeMes = cicMes.filter(r=>r.color==='VERDE').reduce((s,r)=>s+r.ciclos+r.mediosCiclos*0.5,0);
+  const azulMes = cicMes.filter(r=>r.color==='AZUL').reduce((s,r)=>s+r.ciclos+r.mediosCiclos*0.5,0);
+
+  const data6 = [
+    ['RESUMEN GENERAL DE OPERACION','','',''],
+    ['INDICADOR','VALOR','UNIDAD','OBSERVACIONES'],
+    ['Total ciclos del mes', totalMes, 'ciclos', `${verdeMes} verde + ${azulMes} azul`],
+    ['Total registros ciclos', state.ciclos.length, 'registros', ''],
+    ['Total pendientes activos', state.pendientes.length, 'registros', ''],
+    ['Total turnos programados', state.turnos.length, 'turnos', ''],
+    ['Total movimientos insumos', state.movimientos.length, 'registros', ''],
+  ];
+  Object.keys(INSUMOS_DEF).forEach(k => {
+    const def = INSUMOS_DEF[k];
+    data6.push([`Stock ${def.nombre}`, calcularStockPorInsumo(k).toFixed(2), def.unidad, '']);
+  });
+  const ws6 = XLSX.utils.aoa_to_sheet(data6);
+  ws6['!cols'] = [{wch:35},{wch:15},{wch:15},{wch:40}];
+  ws6['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}}];
+  XLSX.utils.book_append_sheet(wb, ws6, 'RESUMEN');
+
+  const fileName = emptyTemplate
+    ? 'CONTROL_AR_PLANTILLA.xlsx'
+    : `CONTROL_AR_${formatDateISO(new Date())}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  showToast('Excel exportado correctamente');
+}
+
+// IMPORTAR Excel
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+
+      let imported = { ciclos: 0, pendientes: 0, turnos: 0, movimientos: 0 };
+
+      // === HOJA CICLOS REALIZADOS ===
+      let sheetName = wb.SheetNames.find(n => n.toUpperCase().includes('REALIZADO'));
+      if (sheetName) imported.ciclos = importCiclos(wb.Sheets[sheetName]);
+
+      // === HOJA PENDIENTES ===
+      sheetName = wb.SheetNames.find(n => n.toUpperCase().includes('PENDIENTE'));
+      if (sheetName) imported.pendientes = importPendientes(wb.Sheets[sheetName]);
+
+      // === HOJA TURNOS ===
+      sheetName = wb.SheetNames.find(n => n.toUpperCase().includes('TURNO'));
+      if (sheetName) imported.turnos = importTurnos(wb.Sheets[sheetName]);
+
+      // === HOJA INVENTARIO ===
+      sheetName = wb.SheetNames.find(n => n.toUpperCase().includes('INVENTARIO'));
+      if (sheetName) imported.movimientos = importMovimientos(wb.Sheets[sheetName]);
+
+      saveState();
+      renderCalendar();
+      renderRecordsTable();
+      renderPendientes();
+      renderTurnos();
+      refreshInsumos();
+      refreshDashboard();
+
+      showToast(`Importado: ${imported.ciclos} ciclos, ${imported.pendientes} pendientes, ${imported.turnos} turnos, ${imported.movimientos} movs.`);
+    } catch (err) {
+      console.error(err);
+      showToast('Error al leer archivo: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = '';
+});
+
+function parseFechaExcel(val) {
+  if (!val) return null;
+  if (val instanceof Date) return formatDateISO(val);
+  const str = String(val).trim();
+  const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) {
+    const yyyy = m[3].length === 2 ? '20' + m[3] : m[3];
+    return `${yyyy}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0,10);
+  return null;
+}
+
+function findHeaderRow(rows, ...keywords) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = (rows[i] || []).map(c => String(c||'').toUpperCase());
+    if (keywords.every(kw => row.some(c => c.includes(kw)))) return i;
+  }
+  return -1;
+}
+
+function importCiclos(ws) {
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+  const headerRow = findHeaderRow(rows, 'FECHA', 'CICLO', 'COLOR');
+  if (headerRow < 0) return 0;
+  let count = 0;
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || !row[0]) continue;
+    const fechaISO = parseFechaExcel(row[0]);
+    if (!fechaISO) continue;
+    const cicloTxt = String(row[1] || '');
+    const color = String(row[2] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE';
+
+    const cMatch = cicloTxt.match(/(\d+)\s*ciclo/i);
+    const mMatch = cicloTxt.match(/(\d+)\s*medio/i);
+    const ciclos = cMatch ? parseInt(cMatch[1]) : 0;
+    const medios = mMatch ? parseInt(mMatch[1]) : 0;
+
+    if (ciclos === 0 && medios === 0) {
+      const num = parseFloat(cicloTxt);
+      if (!isNaN(num) && num > 0) {
+        state.ciclos.push({ id: generateId(), fecha: fechaISO, ciclos: Math.floor(num), mediosCiclos: (num%1)*2, color });
+        count++;
+      }
+    } else {
+      // Evitar duplicados (mismo día + color)
+      const exists = state.ciclos.find(r => r.fecha === fechaISO && r.color === color);
+      if (!exists) {
+        state.ciclos.push({ id: generateId(), fecha: fechaISO, ciclos, mediosCiclos: medios, color });
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+function importPendientes(ws) {
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+  const headerRow = findHeaderRow(rows, 'FECHA', 'CICLO');
+  if (headerRow < 0) return 0;
+  let count = 0;
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || !row[0]) continue;
+    const fReg = parseFechaExcel(row[0]);
+    const fEj = parseFechaExcel(row[1]) || fReg;
+    if (!fEj) continue;
+    const ciclos = parseInt(row[2]) || 0;
+    const medios = parseInt(row[3]) || 0;
+    const color = String(row[4] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE';
+    if (ciclos === 0 && medios === 0) continue;
+    state.pendientes.push({ id: generateId(), fechaRegistro: fReg, fechaEjecucion: fEj, ciclos, medios, color });
+    count++;
+  }
+  return count;
+}
+
+function importTurnos(ws) {
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+  const headerRow = findHeaderRow(rows, 'FECHA', 'OPERARIA');
+  if (headerRow < 0) return 0;
+  let count = 0;
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || !row[0]) continue;
+    const fecha = parseFechaExcel(row[0]);
+    if (!fecha) continue;
+    state.turnos.push({
+      id: generateId(),
+      fecha,
+      operaria: String(row[1] || ''),
+      horaInicio: String(row[2] || ''),
+      horaFin: String(row[3] || ''),
+      horas: String(row[4] || ''),
+      ciclosAsignados: String(row[5] || ''),
+      observaciones: String(row[6] || ''),
+    });
+    count++;
+  }
+  return count;
+}
+
+function importMovimientos(ws) {
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+  const headerRow = findHeaderRow(rows, 'FECHA', 'INSUMO');
+  if (headerRow < 0) return 0;
+  let count = 0;
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || !row[0]) continue;
+    const fecha = parseFechaExcel(row[0]);
+    if (!fecha) continue;
+    state.movimientos.push({
+      id: generateId(),
+      fecha,
+      insumo: String(row[1] || '').toUpperCase(),
+      tipo: String(row[2] || '').toUpperCase(),
+      cantidad: parseFloat(row[3]) || 0,
+      lote: String(row[5] || ''),
+      observaciones: String(row[7] || ''),
+    });
+    count++;
+  }
+  return count;
+}
+
+// JSON Backup
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `backup_AR_${formatDateISO(new Date())}.json`;
+  a.click();
+  showToast('Backup descargado');
+}
+
+document.getElementById('jsonInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = JSON.parse(evt.target.result);
+      Object.assign(state, data);
+      saveState();
+      renderCalendar();
+      renderRecordsTable();
+      renderPendientes();
+      renderTurnos();
+      refreshInsumos();
+      refreshDashboard();
+      showToast('Backup cargado correctamente');
+    } catch (err) {
+      showToast('Error al cargar backup', 'error');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+function clearAllData() {
+  showModal('¿Eliminar TODOS los datos?',
+    '<p>Esta acción eliminará todos los ciclos, pendientes, turnos y movimientos. <strong>No se puede deshacer.</strong></p><p style="margin-top:10px; color:var(--accent-amber);">Recomendamos exportar un backup antes.</p>',
+    () => {
+      state.ciclos = [];
+      state.pendientes = [];
+      state.turnos = [];
+      state.movimientos = [];
+      saveState();
+      renderCalendar();
+      renderRecordsTable();
+      renderPendientes();
+      renderTurnos();
+      refreshInsumos();
+      refreshDashboard();
+      showToast('Todos los datos eliminados');
+    },
+    'Sí, eliminar todo'
+  );
+}
+
+// ================================================================
+// PERSISTENCIA EN MEMORIA
+// ================================================================
+function saveState() {
+  window._ARSystemState = JSON.parse(JSON.stringify(state));
+  // Persistencia local más robusta
+  try {
+    localStorage.setItem('ar_state', JSON.stringify(state));
+  } catch (e) { console.warn('No se pudo guardar en localStorage', e); }
+  // Disparar auto-sync con Google Sheets
+  scheduleAutoSync();
+}
+
+function loadState() {
+  // Prioridad: localStorage > window._ARSystemState
+  try {
+    const stored = localStorage.getItem('ar_state');
+    if (stored) {
+      Object.assign(state, JSON.parse(stored));
+      return;
+    }
+  } catch (e) { console.warn('Error cargando localStorage', e); }
+  if (window._ARSystemState) {
+    Object.assign(state, window._ARSystemState);
+  }
+}
+
+// ================================================================
+// INICIALIZACIÓN
+// ================================================================
+loadState();
+
+// Set fecha hoy en inputs
+const todayISO = formatDateISO(new Date());
+document.getElementById('dateInput').value = todayISO;
+document.getElementById('pendDate').value = formatDateISO(new Date(Date.now() + 86400000));
+document.getElementById('movFecha').value = todayISO;
+document.getElementById('turnoFecha').value = formatDateISO(new Date(Date.now() + 86400000));
+
+selectColor('VERDE');
+goToToday();
+renderRecordsTable();
+renderPendientes();
+renderTurnos();
+refreshInsumos();
+refreshDashboard();
+
+// Inicializar integración Google Sheets (espera a que las libs carguen)
+setTimeout(() => {
+  waitForLibsAndInit();
+  updateGSStatusUI();
+}, 500);
+
+</script>
+</body>
+</html>
