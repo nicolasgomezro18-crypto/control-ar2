@@ -6,8 +6,6 @@
 <title>Sistema de Control AR - Antirreflejo</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<script src="https://apis.google.com/js/api.js" async defer></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root {
     --bg-primary: #0a0e1a;
@@ -1216,7 +1214,7 @@
       <div class="page-header">
         <div class="page-title">
           <h2>Sincronización Google Sheets</h2>
-          <p>Conexión directa con tu hoja de cálculo en Google Drive</p>
+          <p>Conexión vía Apps Script (Web App)</p>
         </div>
       </div>
 
@@ -1227,11 +1225,11 @@
         <div class="gsheets-status-card">
           <div class="gsheets-stat">
             <div class="gsheets-stat-label">Estado</div>
-            <div class="gsheets-stat-value" id="gsConnState">No conectado</div>
+            <div class="gsheets-stat-value" id="gsConnState">Sin configurar</div>
           </div>
           <div class="gsheets-stat">
-            <div class="gsheets-stat-label">Usuario</div>
-            <div class="gsheets-stat-value" id="gsUser">—</div>
+            <div class="gsheets-stat-label">URL del backend</div>
+            <div class="gsheets-stat-value" id="gsUrlDisplay" style="font-size:0.82rem;">—</div>
           </div>
           <div class="gsheets-stat">
             <div class="gsheets-stat-label">Última sincronización</div>
@@ -1243,11 +1241,8 @@
           </div>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn btn-primary" id="btnConnectGoogle" onclick="handleAuthClick()">
-            🔐 Conectar con Google
-          </button>
-          <button class="btn btn-secondary" id="btnDisconnect" onclick="handleSignoutClick()" style="display:none;">
-            🚪 Desconectar
+          <button class="btn btn-primary" onclick="testConnection()">
+            🔌 Probar conexión
           </button>
           <button class="btn btn-success" id="btnPushAll" onclick="pushAllToSheets()" disabled>
             ⬆️ Subir todo a Sheets
@@ -1264,67 +1259,48 @@
       <div class="card">
         <h3>⚙️ Configuración</h3>
         <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:14px;">
-          Pega tus credenciales de Google Cloud y el ID de tu hoja de cálculo.
-          <strong>Solo necesitas hacer esto una vez</strong> — la app las recordará.
+          Pega aquí la URL de la aplicación web que generaste en Apps Script.
+          Es la URL que termina en <code style="background:var(--bg-input); padding:2px 6px; border-radius:4px;">/exec</code>.
         </p>
 
         <div class="form-group">
-          <label>Google Client ID
+          <label>URL del Apps Script
             <span style="font-weight:normal; color:var(--text-muted); font-size:0.8rem;">
-              (de Google Cloud Console)
+              (formato: https://script.google.com/macros/s/XXXX/exec)
             </span>
           </label>
-          <input type="text" id="gsClientId" placeholder="123456789-abc...xyz.apps.googleusercontent.com" />
+          <input type="text" id="gsWebAppUrl" placeholder="https://script.google.com/macros/s/AKfycbx.../exec" />
         </div>
 
-        <div class="form-group">
-          <label>Google API Key
-            <span style="font-weight:normal; color:var(--text-muted); font-size:0.8rem;">
-              (clave restringida a Google Sheets API)
-            </span>
-          </label>
-          <input type="text" id="gsApiKey" placeholder="AIzaSy..." />
-        </div>
-
-        <div class="form-group">
-          <label>Spreadsheet ID
-            <span style="font-weight:normal; color:var(--text-muted); font-size:0.8rem;">
-              (de la URL de tu Google Sheets, entre /d/ y /edit)
-            </span>
-          </label>
-          <input type="text" id="gsSpreadsheetId" placeholder="1PrRDbl_WhO_52bmBvZANrQ6m_XlVHZr04ENGq7xOC7Y" />
-        </div>
-
-        <button class="btn btn-success" onclick="saveGSConfig()">💾 Guardar configuración</button>
+        <button class="btn btn-success" onclick="saveGSConfig()">💾 Guardar URL</button>
         <button class="btn btn-danger" onclick="clearGSConfig()">🗑️ Borrar configuración</button>
       </div>
 
       <div class="card">
-        <h3>📋 Cómo obtener las credenciales</h3>
+        <h3>📋 Cómo configurar (resumen)</h3>
         <p style="color:var(--text-secondary); font-size:0.9rem; line-height:1.7;">
-          Sigue la guía detallada incluida en el archivo <strong>GUIA_GOOGLE_SHEETS_SETUP.md</strong>.
-          Resumen:
+          Sigue la guía detallada en <strong>GUIA_APPS_SCRIPT.md</strong>. Resumen:
         </p>
         <ol style="margin-left:20px; line-height:1.9; font-size:0.9rem; color:var(--text-secondary);">
-          <li>Crea un proyecto en <a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent-cyan);">Google Cloud Console</a></li>
-          <li>Habilita <strong>Google Sheets API</strong></li>
-          <li>Configura la pantalla de consentimiento OAuth (modo "Externo")</li>
-          <li>Crea un <strong>OAuth Client ID</strong> tipo "Aplicación web"</li>
-          <li>Crea una <strong>API Key</strong> restringida a Google Sheets API</li>
-          <li>Agrega tu URL (la de GitHub Pages) a los orígenes autorizados</li>
-          <li>Agrega tu correo como "usuario de prueba"</li>
-          <li>Pega los 3 valores arriba y conecta</li>
+          <li>Abre tu Google Sheets → <strong>Extensiones → Apps Script</strong></li>
+          <li>Pega el código del archivo <strong>AppsScript_Backend.gs</strong></li>
+          <li>Guarda (Ctrl+S) y nombra el proyecto</li>
+          <li><strong>Implementar</strong> → Nueva implementación → Tipo: <strong>Aplicación web</strong></li>
+          <li>Quién tiene acceso: <strong>Cualquier persona</strong> (la URL es secreta, equivale a contraseña)</li>
+          <li>Autorizar permisos cuando los pida</li>
+          <li>Copia la URL generada y pégala arriba</li>
+          <li>Haz clic en <strong>"Probar conexión"</strong></li>
         </ol>
       </div>
 
       <div class="card">
-        <h3>🔄 Cómo funciona la sincronización</h3>
+        <h3>🔄 Cómo funciona</h3>
         <ul style="list-style:none; line-height:1.9; font-size:0.9rem; color:var(--text-secondary);">
-          <li>✅ <strong>Auto-sync (activado por defecto):</strong> cada cambio en la app se sube a Sheets en ~2 segundos</li>
+          <li>✅ <strong>Auto-sync (activado por defecto):</strong> cada cambio se sube a Sheets en ~2.5 segundos</li>
           <li>✅ <strong>Subir todo:</strong> reemplaza el contenido de Sheets con los datos locales</li>
           <li>✅ <strong>Bajar todo:</strong> reemplaza los datos locales con los de Sheets</li>
-          <li>⚠️ <strong>Conflictos:</strong> la última escritura gana — coordina con tu equipo si trabajan al tiempo</li>
-          <li>📡 <strong>Sin internet:</strong> la app sigue funcionando, sincroniza cuando vuelvas a tener conexión</li>
+          <li>📡 <strong>Sin internet:</strong> la app sigue funcionando, sincroniza al recuperar conexión</li>
+          <li>🔒 <strong>Seguridad:</strong> tu URL es única y secreta, no la compartas</li>
         </ul>
       </div>
     </div>
@@ -1349,310 +1325,146 @@
 
 <script>
 // ================================================================
-// MÓDULO GOOGLE SHEETS API
+// MÓDULO GOOGLE SHEETS (vía Apps Script Web App)
 // ================================================================
 const GS = {
-  CLIENT_ID: '',
-  API_KEY: '',
-  SPREADSHEET_ID: '',
-  DISCOVERY_DOC: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
-  SCOPES: 'https://www.googleapis.com/auth/spreadsheets',
-  tokenClient: null,
-  gapiInited: false,
-  gisInited: false,
+  WEB_APP_URL: '',
   isConnected: false,
-  userEmail: '',
   lastSync: null,
   autoSyncEnabled: true,
   syncTimer: null,
   syncQueue: false,
+  syncInProgress: false,
 };
 
-// Mapa de hojas y sus rangos
-const SHEET_MAP = {
-  ciclos:       { sheet: 'CICLOS REALIZADOS AL DIA', headers: ['FECHA','CICLO REALIZADO','COLOR DEL CICLO'] },
-  pendientes:   { sheet: 'CICLOS PENDIENTES', headers: ['FECHA REGISTRO','FECHA EJECUCION','CICLOS COMPLETOS','MEDIOS CICLOS','COLOR'] },
-  turnos:       { sheet: 'PROGRAMACION TURNOS', headers: ['FECHA','OPERARIA','HORA INICIO','HORA FIN','HORAS','CICLOS ASIGNADOS','OBSERVACIONES'] },
-  movimientos:  { sheet: 'INVENTARIO INSUMOS', headers: ['FECHA','INSUMO','TIPO MOVIMIENTO','CANTIDAD','UNIDAD','LOTE','STOCK RESULTANTE','OBSERVACIONES'] },
-};
-
-// === Cargar configuración guardada ===
+// Cargar configuración guardada
 function loadGSConfig() {
   try {
     const cfg = localStorage.getItem('gs_config');
     if (cfg) {
       const parsed = JSON.parse(cfg);
-      GS.CLIENT_ID = parsed.clientId || '';
-      GS.API_KEY = parsed.apiKey || '';
-      GS.SPREADSHEET_ID = parsed.spreadsheetId || '';
+      GS.WEB_APP_URL = parsed.webAppUrl || '';
       GS.autoSyncEnabled = parsed.autoSync !== false;
     }
   } catch (e) { console.warn('No se pudo cargar config GS', e); }
 }
 
 function saveGSConfig() {
-  GS.CLIENT_ID = document.getElementById('gsClientId').value.trim();
-  GS.API_KEY = document.getElementById('gsApiKey').value.trim();
-  GS.SPREADSHEET_ID = document.getElementById('gsSpreadsheetId').value.trim();
-
-  // Limpiar el ID por si pegan la URL completa
-  const urlMatch = GS.SPREADSHEET_ID.match(/\/d\/([a-zA-Z0-9-_]+)/);
-  if (urlMatch) GS.SPREADSHEET_ID = urlMatch[1];
-
-  if (!GS.CLIENT_ID || !GS.API_KEY || !GS.SPREADSHEET_ID) {
-    showToast('Faltan campos por completar', 'error');
+  const url = document.getElementById('gsWebAppUrl').value.trim();
+  if (!url) {
+    showToast('Pega la URL del Apps Script', 'error');
     return;
   }
-
+  if (!url.includes('script.google.com')) {
+    showToast('URL no parece de Apps Script', 'error');
+    return;
+  }
+  GS.WEB_APP_URL = url;
   try {
     localStorage.setItem('gs_config', JSON.stringify({
-      clientId: GS.CLIENT_ID,
-      apiKey: GS.API_KEY,
-      spreadsheetId: GS.SPREADSHEET_ID,
-      autoSync: GS.autoSyncEnabled
+      webAppUrl: GS.WEB_APP_URL,
+      autoSync: GS.autoSyncEnabled,
     }));
-    showToast('Configuración guardada. Recargando módulo...');
-    setTimeout(() => location.reload(), 1000);
+    showToast('Configuración guardada');
+    updateGSStatusUI();
   } catch (e) {
     showToast('Error al guardar: ' + e.message, 'error');
   }
 }
 
 function clearGSConfig() {
-  showModal('¿Borrar configuración Google?',
-    '<p>Se eliminarán las credenciales guardadas. Tendrás que volver a ingresarlas.</p>',
+  showModal('¿Borrar configuración?',
+    '<p>Se eliminará la URL guardada. Tendrás que volver a pegarla.</p>',
     () => {
       localStorage.removeItem('gs_config');
-      GS.CLIENT_ID = '';
-      GS.API_KEY = '';
-      GS.SPREADSHEET_ID = '';
+      GS.WEB_APP_URL = '';
+      GS.isConnected = false;
+      updateSyncStatus('disconnected', 'Sin configurar');
+      updateGSStatusUI();
       showToast('Configuración borrada');
-      setTimeout(() => location.reload(), 800);
     },
     'Sí, borrar'
   );
 }
 
-// === Inicialización de GAPI y GIS ===
-function gapiLoaded() {
-  gapi.load('client', initializeGapiClient);
-}
-
-async function initializeGapiClient() {
-  if (!GS.API_KEY) return;
-  try {
-    await gapi.client.init({ apiKey: GS.API_KEY });
-    // Cargar la API de Sheets v4 explícitamente
-    // Usamos el método (name, version) que es más robusto que pasar URL completa
-    await gapi.client.load('sheets', 'v4');
-    GS.gapiInited = true;
-    console.log('GAPI + Sheets API v4 cargada. sheets disponible:', !!gapi.client.sheets);
-    maybeEnableButtons();
-  } catch (err) {
-    console.error('Error inicializando GAPI:', err);
-    const errMsg = extractErrorMessage(err);
-    updateSyncStatus('error', 'Error config');
-    showToast('Error inicializando GAPI: ' + errMsg, 'error');
-  }
-}
-
-// Extrae el mensaje de error real de las distintas formas que tienen los errores de gapi
-function extractErrorMessage(err) {
-  if (!err) return 'Error desconocido';
-  if (typeof err === 'string') return err;
-  if (err.message) return err.message;
-  if (err.result?.error?.message) return err.result.error.message;
-  if (err.error) return typeof err.error === 'string' ? err.error : JSON.stringify(err.error);
-  if (err.details) return err.details;
-  try { return JSON.stringify(err); } catch(e) { return 'Error sin detalles'; }
-}
-
-// Asegura que el discovery de Sheets esté cargado antes de cualquier llamada
-async function ensureSheetsApi() {
-  if (gapi.client.sheets) return true;
-  console.warn('gapi.client.sheets no disponible, recargando...');
-  try {
-    await gapi.client.load('sheets', 'v4');
-    return !!gapi.client.sheets;
-  } catch (e) {
-    console.error('No se pudo recargar Sheets API:', e);
-    return false;
-  }
-}
-
-function gisLoaded() {
-  if (!GS.CLIENT_ID) return;
-  try {
-    GS.tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GS.CLIENT_ID,
-      scope: GS.SCOPES,
-      callback: '', // Se establece dinámicamente
-    });
-    GS.gisInited = true;
-    maybeEnableButtons();
-  } catch (err) {
-    console.error('Error inicializando GIS', err);
-  }
-}
-
-function maybeEnableButtons() {
-  if (GS.gapiInited && GS.gisInited) {
-    document.getElementById('btnConnectGoogle').disabled = false;
-    updateSyncStatus('disconnected', 'Listo para conectar');
-  }
-}
-
-// Esperar a que las librerías estén cargadas y luego inicializar
-function waitForLibsAndInit() {
-  loadGSConfig();
-  if (!GS.CLIENT_ID || !GS.API_KEY) {
-    updateSyncStatus('disconnected', 'Sin configurar');
+// Probar la conexión con el Apps Script
+async function testConnection() {
+  if (!GS.WEB_APP_URL) {
+    showToast('Primero guarda la URL', 'warning');
     return;
   }
-
-  let attempts = 0;
-  const maxAttempts = 30;
-  const interval = setInterval(() => {
-    attempts++;
-    if (typeof gapi !== 'undefined' && typeof google !== 'undefined' && google.accounts) {
-      clearInterval(interval);
-      gapiLoaded();
-      gisLoaded();
-    } else if (attempts >= maxAttempts) {
-      clearInterval(interval);
-      console.warn('Las librerías de Google no se cargaron');
+  updateSyncStatus('syncing', 'Probando...');
+  try {
+    const resp = await fetch(GS.WEB_APP_URL + '?action=ping');
+    const data = await resp.json();
+    if (data.ok) {
+      GS.isConnected = true;
+      updateSyncStatus('connected', 'Conectado');
+      showToast('✓ Conexión exitosa con Apps Script');
+      document.getElementById('btnPushAll').disabled = false;
+      document.getElementById('btnPullAll').disabled = false;
+      updateGSStatusUI();
+    } else {
+      throw new Error(data.error || 'Respuesta inválida');
     }
-  }, 200);
-}
-
-// === Conectar / Desconectar ===
-function handleAuthClick() {
-  if (!GS.tokenClient) {
-    showToast('Primero guarda la configuración', 'warning');
-    return;
-  }
-
-  GS.tokenClient.callback = async (resp) => {
-    if (resp.error !== undefined) {
-      updateSyncStatus('error', 'Error de autorización');
-      showToast('Error: ' + resp.error, 'error');
-      return;
-    }
-
-    // Tras obtener el token, asegurar que la API de Sheets esté lista
-    let sheetsLoaded = false;
-    let lastError = null;
-
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        if (!gapi.client.sheets) {
-          await gapi.client.load('sheets', 'v4');
-        }
-        if (gapi.client.sheets) {
-          sheetsLoaded = true;
-          console.log(`Sheets API lista (intento ${attempt}). Métodos:`, Object.keys(gapi.client.sheets));
-          break;
-        }
-      } catch (e) {
-        lastError = e;
-        console.warn(`Intento ${attempt} de cargar Sheets API falló:`, e);
-        await new Promise(r => setTimeout(r, 600 * attempt));
-      }
-    }
-
-    if (!sheetsLoaded) {
-      const msg = extractErrorMessage(lastError);
-      console.error('Detalle del error:', lastError);
-      showToast('No se pudo cargar la API de Sheets: ' + msg, 'error');
-      updateSyncStatus('error', 'Error API');
-      return;
-    }
-
-    GS.isConnected = true;
-    updateSyncStatus('connected', 'Conectado');
-    showToast('✓ Conectado a Google Sheets');
-
-    await ensureSheetsExist();
-
-    document.getElementById('btnPushAll').disabled = false;
-    document.getElementById('btnPullAll').disabled = false;
-    document.getElementById('btnConnectGoogle').style.display = 'none';
-    document.getElementById('btnDisconnect').style.display = 'inline-flex';
-
-    updateGSStatusUI();
-  };
-
-  if (gapi.client.getToken() === null) {
-    GS.tokenClient.requestAccessToken({ prompt: 'consent' });
-  } else {
-    GS.tokenClient.requestAccessToken({ prompt: '' });
+  } catch (err) {
+    GS.isConnected = false;
+    updateSyncStatus('error', 'Error');
+    console.error('Error de conexión:', err);
+    showToast('Error: ' + err.message + '. Verifica la URL y permisos.', 'error');
   }
 }
 
-function handleSignoutClick() {
-  const token = gapi.client.getToken();
-  if (token !== null) {
-    google.accounts.oauth2.revoke(token.access_token);
-    gapi.client.setToken('');
-  }
-  GS.isConnected = false;
-  GS.userEmail = '';
-  updateSyncStatus('disconnected', 'Desconectado');
-  document.getElementById('btnPushAll').disabled = true;
-  document.getElementById('btnPullAll').disabled = true;
-  document.getElementById('btnConnectGoogle').style.display = 'inline-flex';
-  document.getElementById('btnDisconnect').style.display = 'none';
-  updateGSStatusUI();
-  showToast('Desconectado');
-}
-
-// === Estado visual ===
+// Estado visual
 function updateSyncStatus(state, text) {
   const dot = document.getElementById('syncDot');
   const txt = document.getElementById('syncText');
-  if (dot) {
-    dot.className = 'sync-dot ' + state;
-  }
+  if (dot) dot.className = 'sync-dot ' + state;
   if (txt) txt.textContent = text;
 }
 
 function updateGSStatusUI() {
   const cs = document.getElementById('gsConnState');
-  const us = document.getElementById('gsUser');
   const ls = document.getElementById('gsLastSync');
   const as = document.getElementById('gsAutoSyncState');
-  if (cs) cs.textContent = GS.isConnected ? '✓ Conectado' : '✗ No conectado';
-  if (us) us.textContent = GS.userEmail || (GS.isConnected ? 'Autenticado' : '—');
+  const url = document.getElementById('gsUrlDisplay');
+  if (cs) cs.textContent = GS.isConnected ? '✓ Conectado' : (GS.WEB_APP_URL ? '⏸ Sin probar' : '✗ Sin configurar');
   if (ls) ls.textContent = GS.lastSync ? new Date(GS.lastSync).toLocaleString() : 'Nunca';
   if (as) as.textContent = GS.autoSyncEnabled ? '✅ Activado' : '❌ Desactivado';
+  if (url) {
+    if (GS.WEB_APP_URL) {
+      const masked = GS.WEB_APP_URL.length > 50
+        ? GS.WEB_APP_URL.substring(0, 35) + '...' + GS.WEB_APP_URL.slice(-10)
+        : GS.WEB_APP_URL;
+      url.textContent = masked;
+    } else {
+      url.textContent = '—';
+    }
+  }
 
-  // Mostrar warning si no está configurado
   const warn = document.getElementById('gsheetsConfigWarning');
   if (warn) {
-    if (!GS.CLIENT_ID || !GS.API_KEY || !GS.SPREADSHEET_ID) {
+    if (!GS.WEB_APP_URL) {
       warn.innerHTML = `<div class="config-warning">
-        ⚠️ <strong>Configura las credenciales primero.</strong> Lee la sección "Cómo obtener las credenciales" más abajo.
+        ⚠️ <strong>Configura la URL del Apps Script primero.</strong> Sigue la guía en GUIA_APPS_SCRIPT.md
       </div>`;
     } else {
       warn.innerHTML = '';
     }
   }
 
-  // Llenar campos del form
-  if (document.getElementById('gsClientId')) document.getElementById('gsClientId').value = GS.CLIENT_ID;
-  if (document.getElementById('gsApiKey')) document.getElementById('gsApiKey').value = GS.API_KEY;
-  if (document.getElementById('gsSpreadsheetId')) document.getElementById('gsSpreadsheetId').value = GS.SPREADSHEET_ID;
+  if (document.getElementById('gsWebAppUrl')) {
+    document.getElementById('gsWebAppUrl').value = GS.WEB_APP_URL;
+  }
 }
 
 function toggleAutoSync() {
   GS.autoSyncEnabled = !GS.autoSyncEnabled;
-  // Persistir
   try {
     const cfg = JSON.parse(localStorage.getItem('gs_config') || '{}');
     cfg.autoSync = GS.autoSyncEnabled;
     localStorage.setItem('gs_config', JSON.stringify(cfg));
   } catch (e) {}
-
   document.getElementById('btnToggleAutoSync').innerHTML = GS.autoSyncEnabled
     ? '🔄 Desactivar auto-sync'
     : '🔄 Activar auto-sync';
@@ -1660,43 +1472,9 @@ function toggleAutoSync() {
   updateGSStatusUI();
 }
 
-// === Verificar y crear pestañas si faltan ===
-async function ensureSheetsExist() {
-  const sheetsReady = await ensureSheetsApi();
-  if (!sheetsReady) return;
-  try {
-    const meta = await gapi.client.sheets.spreadsheets.get({
-      spreadsheetId: GS.SPREADSHEET_ID
-    });
-    const existingSheets = meta.result.sheets.map(s => s.properties.title);
-    const required = Object.values(SHEET_MAP).map(m => m.sheet);
-    const missing = required.filter(name => !existingSheets.includes(name));
-
-    if (missing.length > 0) {
-      const requests = missing.map(title => ({
-        addSheet: { properties: { title } }
-      }));
-      await gapi.client.sheets.spreadsheets.batchUpdate({
-        spreadsheetId: GS.SPREADSHEET_ID,
-        resource: { requests }
-      });
-      console.log('Pestañas creadas:', missing);
-    }
-  } catch (err) {
-    console.error('Error verificando hojas:', err);
-    if (err.status === 404) {
-      showToast('No se encontró la hoja. Verifica el Spreadsheet ID', 'error');
-    } else if (err.status === 403) {
-      showToast('Sin permisos. Verifica que tu cuenta tenga acceso a la hoja', 'error');
-    }
-  }
-}
-
-// === Convertir datos a filas para Sheets ===
+// === Convertir datos del estado a filas ===
 function dataToRows(type) {
-  const map = SHEET_MAP[type];
-  const rows = [map.headers]; // Primera fila: encabezados
-
+  const rows = [];
   if (type === 'ciclos') {
     [...state.ciclos].sort((a,b) => a.fecha.localeCompare(b.fecha)).forEach(r => {
       rows.push([formatDateDisplay(r.fecha), formatCicloText(r.ciclos, r.mediosCiclos), r.color]);
@@ -1723,81 +1501,55 @@ function dataToRows(type) {
   return rows;
 }
 
-// === Subir un tipo de datos a Sheets ===
-async function pushToSheets(type) {
-  if (!GS.isConnected) return false;
-
-  // Verificar que gapi.client.sheets esté disponible
-  const sheetsReady = await ensureSheetsApi();
-  if (!sheetsReady) {
-    showToast('API de Sheets no disponible. Desconecta y vuelve a conectar.', 'error');
-    return false;
-  }
-
-  const map = SHEET_MAP[type];
-  const rows = dataToRows(type);
-
-  try {
-    await gapi.client.sheets.spreadsheets.values.clear({
-      spreadsheetId: GS.SPREADSHEET_ID,
-      range: map.sheet,
-    });
-    await gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId: GS.SPREADSHEET_ID,
-      range: `${map.sheet}!A1`,
-      valueInputOption: 'USER_ENTERED',
-      resource: { values: rows },
-    });
-    return true;
-  } catch (err) {
-    console.error(`Error subiendo ${type}:`, err);
-    const msg = extractErrorMessage(err);
-    showToast(`Error al subir ${type}: ${msg}`, 'error');
-    return false;
-  }
-}
-
+// === Subir todo a Apps Script ===
 async function pushAllToSheets() {
-  if (!GS.isConnected) {
-    showToast('Conecta primero a Google', 'warning');
+  if (!GS.isConnected || !GS.WEB_APP_URL) {
+    showToast('Conecta primero', 'warning');
     return;
   }
+  if (GS.syncInProgress) return;
+  GS.syncInProgress = true;
   updateSyncStatus('syncing', 'Subiendo...');
-  showToast('Subiendo datos a Google Sheets...');
 
-  let ok = 0;
-  for (const type of Object.keys(SHEET_MAP)) {
-    const success = await pushToSheets(type);
-    if (success) ok++;
-  }
-
-  GS.lastSync = new Date().toISOString();
-  updateSyncStatus('connected', 'Sincronizado');
-  updateGSStatusUI();
-  showToast(`✓ ${ok}/${Object.keys(SHEET_MAP).length} hojas actualizadas`);
-}
-
-// === Descargar de Sheets ===
-async function pullFromSheets(type) {
-  if (!GS.isConnected) return null;
-  const sheetsReady = await ensureSheetsApi();
-  if (!sheetsReady) return null;
-  const map = SHEET_MAP[type];
   try {
-    const resp = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: GS.SPREADSHEET_ID,
-      range: map.sheet,
+    const payload = {
+      action: 'pushAll',
+      data: {
+        ciclos: dataToRows('ciclos'),
+        pendientes: dataToRows('pendientes'),
+        turnos: dataToRows('turnos'),
+        movimientos: dataToRows('movimientos'),
+      }
+    };
+    // Apps Script no permite preflight CORS con application/json,
+    // por eso usamos text/plain (Apps Script igual lo parsea)
+    const resp = await fetch(GS.WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
     });
-    return resp.result.values || [];
+    const result = await resp.json();
+    if (result.ok) {
+      GS.lastSync = new Date().toISOString();
+      updateSyncStatus('connected', 'Sincronizado ✓');
+      showToast('✓ Datos subidos a Google Sheets');
+      updateGSStatusUI();
+    } else {
+      throw new Error(result.error || 'Error desconocido');
+    }
   } catch (err) {
-    console.error(`Error bajando ${type}:`, err);
-    return null;
+    console.error('Error subiendo:', err);
+    updateSyncStatus('error', 'Error sync');
+    showToast('Error al sincronizar: ' + err.message, 'error');
+  } finally {
+    GS.syncInProgress = false;
   }
 }
 
+// === Bajar todo desde Apps Script ===
 async function pullAllFromSheets() {
-  if (!GS.isConnected) {
-    showToast('Conecta primero a Google', 'warning');
+  if (!GS.isConnected || !GS.WEB_APP_URL) {
+    showToast('Conecta primero', 'warning');
     return;
   }
 
@@ -1805,22 +1557,19 @@ async function pullAllFromSheets() {
     '<p>Esto reemplazará todos los datos en la app con los que están en Google Sheets. <strong>Los datos locales se perderán</strong> si no los has subido antes.</p>',
     async () => {
       updateSyncStatus('syncing', 'Bajando...');
-      showToast('Descargando datos de Google Sheets...');
+      showToast('Descargando datos...');
 
-      // Limpiar estado
-      state.ciclos = [];
-      state.pendientes = [];
-      state.turnos = [];
-      state.movimientos = [];
+      try {
+        const resp = await fetch(GS.WEB_APP_URL + '?action=getAll');
+        const result = await resp.json();
+        if (!result.ok) throw new Error(result.error || 'Error desconocido');
 
-      // CICLOS
-      const ciclosRows = await pullFromSheets('ciclos');
-      if (ciclosRows && ciclosRows.length > 1) {
-        for (let i = 1; i < ciclosRows.length; i++) {
-          const r = ciclosRows[i];
-          if (!r[0]) continue;
+        // Parsear CICLOS
+        state.ciclos = [];
+        (result.data.ciclos || []).forEach(r => {
+          if (!r[0]) return;
           const fecha = parseFechaExcel(r[0]);
-          if (!fecha) continue;
+          if (!fecha) return;
           const cicloTxt = String(r[1] || '');
           const color = String(r[2] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE';
           const cMatch = cicloTxt.match(/(\d+)\s*ciclo/i);
@@ -1830,18 +1579,15 @@ async function pullAllFromSheets() {
           if (ciclos > 0 || medios > 0) {
             state.ciclos.push({ id: generateId(), fecha, ciclos, mediosCiclos: medios, color });
           }
-        }
-      }
+        });
 
-      // PENDIENTES
-      const pendRows = await pullFromSheets('pendientes');
-      if (pendRows && pendRows.length > 1) {
-        for (let i = 1; i < pendRows.length; i++) {
-          const r = pendRows[i];
-          if (!r[0]) continue;
+        // Parsear PENDIENTES
+        state.pendientes = [];
+        (result.data.pendientes || []).forEach(r => {
+          if (!r[0]) return;
           const fReg = parseFechaExcel(r[0]);
           const fEj = parseFechaExcel(r[1]) || fReg;
-          if (!fEj) continue;
+          if (!fEj) return;
           state.pendientes.push({
             id: generateId(),
             fechaRegistro: fReg,
@@ -1850,17 +1596,14 @@ async function pullAllFromSheets() {
             medios: parseInt(r[3]) || 0,
             color: String(r[4] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE',
           });
-        }
-      }
+        });
 
-      // TURNOS
-      const turnosRows = await pullFromSheets('turnos');
-      if (turnosRows && turnosRows.length > 1) {
-        for (let i = 1; i < turnosRows.length; i++) {
-          const r = turnosRows[i];
-          if (!r[0]) continue;
+        // Parsear TURNOS
+        state.turnos = [];
+        (result.data.turnos || []).forEach(r => {
+          if (!r[0]) return;
           const fecha = parseFechaExcel(r[0]);
-          if (!fecha) continue;
+          if (!fecha) return;
           state.turnos.push({
             id: generateId(),
             fecha,
@@ -1871,17 +1614,14 @@ async function pullAllFromSheets() {
             ciclosAsignados: String(r[5] || ''),
             observaciones: String(r[6] || ''),
           });
-        }
-      }
+        });
 
-      // MOVIMIENTOS
-      const movRows = await pullFromSheets('movimientos');
-      if (movRows && movRows.length > 1) {
-        for (let i = 1; i < movRows.length; i++) {
-          const r = movRows[i];
-          if (!r[0]) continue;
+        // Parsear MOVIMIENTOS
+        state.movimientos = [];
+        (result.data.movimientos || []).forEach(r => {
+          if (!r[0]) return;
           const fecha = parseFechaExcel(r[0]);
-          if (!fecha) continue;
+          if (!fecha) return;
           state.movimientos.push({
             id: generateId(),
             fecha,
@@ -1891,21 +1631,26 @@ async function pullAllFromSheets() {
             lote: String(r[5] || ''),
             observaciones: String(r[7] || ''),
           });
-        }
+        });
+
+        // Persistir y refrescar UI
+        try { localStorage.setItem('ar_state', JSON.stringify(state)); } catch(e){}
+        renderCalendar();
+        renderRecordsTable();
+        renderPendientes();
+        renderTurnos();
+        refreshInsumos();
+        refreshDashboard();
+
+        GS.lastSync = new Date().toISOString();
+        updateSyncStatus('connected', 'Sincronizado ✓');
+        updateGSStatusUI();
+        showToast(`✓ Bajado: ${state.ciclos.length} ciclos, ${state.pendientes.length} pendientes, ${state.turnos.length} turnos, ${state.movimientos.length} movs.`);
+      } catch (err) {
+        console.error(err);
+        updateSyncStatus('error', 'Error');
+        showToast('Error al bajar: ' + err.message, 'error');
       }
-
-      saveState();
-      renderCalendar();
-      renderRecordsTable();
-      renderPendientes();
-      renderTurnos();
-      refreshInsumos();
-      refreshDashboard();
-
-      GS.lastSync = new Date().toISOString();
-      updateSyncStatus('connected', 'Sincronizado');
-      updateGSStatusUI();
-      showToast(`✓ Datos descargados: ${state.ciclos.length} ciclos, ${state.pendientes.length} pendientes, ${state.turnos.length} turnos, ${state.movimientos.length} movs.`);
     },
     'Sí, reemplazar'
   );
@@ -1913,28 +1658,40 @@ async function pullAllFromSheets() {
 
 // === Auto-sync con debounce ===
 function scheduleAutoSync() {
-  if (!GS.isConnected || !GS.autoSyncEnabled) return;
+  if (!GS.isConnected || !GS.autoSyncEnabled || !GS.WEB_APP_URL) return;
   if (GS.syncTimer) clearTimeout(GS.syncTimer);
   GS.syncQueue = true;
   updateSyncStatus('syncing', 'Pendiente...');
-
   GS.syncTimer = setTimeout(async () => {
     if (!GS.syncQueue) return;
     GS.syncQueue = false;
-    updateSyncStatus('syncing', 'Sincronizando...');
-    let ok = 0;
-    for (const type of Object.keys(SHEET_MAP)) {
-      const success = await pushToSheets(type);
-      if (success) ok++;
+    await pushAllToSheets();
+  }, 2500);
+}
+
+// Inicializar (cargar config y probar conexión si está)
+async function initGSheets() {
+  loadGSConfig();
+  if (GS.WEB_APP_URL) {
+    // Probar conexión silenciosamente
+    try {
+      const resp = await fetch(GS.WEB_APP_URL + '?action=ping');
+      const data = await resp.json();
+      if (data.ok) {
+        GS.isConnected = true;
+        updateSyncStatus('connected', 'Conectado');
+        document.getElementById('btnPushAll').disabled = false;
+        document.getElementById('btnPullAll').disabled = false;
+      } else {
+        updateSyncStatus('error', 'Error');
+      }
+    } catch (e) {
+      updateSyncStatus('disconnected', 'Sin conexión');
     }
-    GS.lastSync = new Date().toISOString();
-    if (ok === Object.keys(SHEET_MAP).length) {
-      updateSyncStatus('connected', 'Sincronizado ✓');
-    } else {
-      updateSyncStatus('error', 'Sync parcial');
-    }
-    updateGSStatusUI();
-  }, 2500); // Esperar 2.5s desde el último cambio
+  } else {
+    updateSyncStatus('disconnected', 'Sin configurar');
+  }
+  updateGSStatusUI();
 }
 
 
@@ -3348,10 +3105,9 @@ renderTurnos();
 refreshInsumos();
 refreshDashboard();
 
-// Inicializar integración Google Sheets (espera a que las libs carguen)
+// Inicializar integración Google Sheets vía Apps Script
 setTimeout(() => {
-  waitForLibsAndInit();
-  updateGSStatusUI();
+  initGSheets();
 }, 500);
 
 </script>
