@@ -746,9 +746,217 @@
     color: #fcd34d;
     font-size: 0.9rem;
   }
+
+  /* === LOGIN === */
+  .login-overlay {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, var(--bg-primary), var(--bg-secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+  }
+
+  .login-box {
+    background: var(--bg-card);
+    padding: 32px;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+  }
+
+  .login-box h1 {
+    text-align: center;
+    margin-bottom: 6px;
+    font-size: 1.6rem;
+    color: var(--accent-cyan);
+  }
+
+  .login-box .subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+  }
+
+  .login-box .form-group { margin-bottom: 16px; }
+
+  .login-box .btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    margin-top: 8px;
+  }
+
+  .login-error {
+    background: rgba(239,68,68,0.15);
+    border: 1px solid var(--accent-red);
+    color: #fca5a5;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    font-size: 0.9rem;
+    display: none;
+  }
+
+  .login-error.show { display: block; }
+
+  /* === USER BADGE EN SIDEBAR === */
+  .user-badge {
+    margin: 14px 14px 0;
+    padding: 12px;
+    background: var(--bg-input);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+  }
+
+  .user-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+  }
+
+  .user-role {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    text-transform: uppercase;
+  }
+
+  .user-actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 6px;
+  }
+
+  .user-actions button {
+    flex: 1;
+    padding: 6px 10px;
+    background: var(--bg-card-hover);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.78rem;
+  }
+
+  .user-actions button:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-cyan);
+  }
+
+  /* === Permisos checkbox grid === */
+  .permisos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .permiso-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s;
+  }
+
+  .permiso-item:hover { border-color: var(--accent-cyan); }
+
+  .permiso-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-cyan);
+    cursor: pointer;
+  }
+
+  .permiso-item label {
+    cursor: pointer;
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  /* === Tarjetas de costos === */
+  .costos-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+
+  /* Ocultar columna de costos para no-admins */
+  body.hide-costos .col-costo { display: none; }
 </style>
 </head>
 <body>
+
+<!-- ========== PANTALLA DE LOGIN ========== -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h1 id="loginTitle">🔬 Control AR</h1>
+    <p class="subtitle" id="loginSubtitle">Inicia sesión para continuar</p>
+
+    <div id="loginConfigSection" style="display:none;">
+      <div class="login-error show" style="background:rgba(245,158,11,0.15); border-color:var(--accent-amber); color:#fcd34d;">
+        ⚠️ Primero configura la URL del Apps Script para conectar con Google Sheets.
+      </div>
+      <div class="form-group">
+        <label>URL del Apps Script</label>
+        <input type="text" id="loginGsUrl" placeholder="https://script.google.com/macros/s/.../exec" />
+      </div>
+      <button class="btn btn-primary" onclick="loginSaveUrl()">💾 Guardar URL</button>
+    </div>
+
+    <div id="loginBootstrapSection" style="display:none;">
+      <div class="login-error show" style="background:rgba(59,130,246,0.15); border-color:var(--accent-azul); color:#93c5fd;">
+        🎉 ¡Bienvenido! Crea el primer usuario administrador.
+      </div>
+      <div class="form-group">
+        <label>Nombre completo</label>
+        <input type="text" id="bootNombre" placeholder="Tu nombre" />
+      </div>
+      <div class="form-group">
+        <label>Usuario</label>
+        <input type="text" id="bootUsuario" placeholder="admin" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña (mín. 4 caracteres)</label>
+        <input type="password" id="bootPassword" placeholder="••••••••" />
+      </div>
+      <button class="btn btn-success" onclick="bootstrapAdmin()">✨ Crear administrador</button>
+    </div>
+
+    <div id="loginFormSection">
+      <div class="login-error" id="loginError"></div>
+      <div class="form-group">
+        <label>Usuario</label>
+        <input type="text" id="loginUsuario" placeholder="usuario" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <button class="btn btn-primary" onclick="doLogin()">🔓 Iniciar sesión</button>
+    </div>
+
+    <div style="text-align:center; margin-top:20px; font-size:0.78rem; color:var(--text-muted);">
+      <a href="#" onclick="showLoginConfig(); return false;" style="color:var(--accent-cyan); text-decoration:none;">
+        Configurar URL del backend
+      </a>
+    </div>
+  </div>
+</div>
 
 <div class="app-layout">
   <!-- ========== SIDEBAR ========== -->
@@ -761,26 +969,41 @@
         <span id="syncText">Sin conectar</span>
       </div>
     </div>
-    <div class="nav-item active" data-page="dashboard">
+
+    <div class="user-badge" id="userBadge">
+      <div class="user-name" id="userBadgeName">—</div>
+      <div class="user-role" id="userBadgeRole">—</div>
+      <div class="user-actions">
+        <button onclick="changeOwnPassword()">🔑 Contraseña</button>
+        <button onclick="logout()">🚪 Salir</button>
+      </div>
+    </div>
+    <div class="nav-item active" data-page="dashboard" data-perm="dashboard">
       <span class="nav-icon">📊</span> Dashboard
     </div>
-    <div class="nav-item" data-page="ciclos">
+    <div class="nav-item" data-page="ciclos" data-perm="ciclos">
       <span class="nav-icon">📅</span> Ciclos Realizados
     </div>
-    <div class="nav-item" data-page="pendientes">
+    <div class="nav-item" data-page="pendientes" data-perm="pendientes">
       <span class="nav-icon">⏳</span> Ciclos Pendientes
     </div>
-    <div class="nav-item" data-page="turnos">
+    <div class="nav-item" data-page="turnos" data-perm="turnos">
       <span class="nav-icon">👥</span> Turnos
     </div>
-    <div class="nav-item" data-page="insumos">
+    <div class="nav-item" data-page="insumos" data-perm="insumos">
       <span class="nav-icon">📦</span> Insumos
     </div>
-    <div class="nav-item" data-page="reportes">
+    <div class="nav-item" data-page="costos" data-perm="costos">
+      <span class="nav-icon">💰</span> Costos
+    </div>
+    <div class="nav-item" data-page="reportes" data-perm="reportes">
       <span class="nav-icon">📁</span> Excel / Reportes
     </div>
-    <div class="nav-item" data-page="gsheets">
+    <div class="nav-item" data-page="gsheets" data-perm="gsheets">
       <span class="nav-icon">☁️</span> Google Sheets
+    </div>
+    <div class="nav-item" data-page="admin" data-perm="admin">
+      <span class="nav-icon">👤</span> Administración
     </div>
   </nav>
 
@@ -1090,12 +1313,12 @@
           <div class="form-group">
             <label>Insumo</label>
             <select id="movInsumo">
-              <option value="HIDROFOBICO">Hidrofóbico (pastillas)</option>
-              <option value="ZIRCONIO">Zirconio (unidades)</option>
-              <option value="CUARZO">Cuarzo (unidades)</option>
-              <option value="FILAMENTO">Filamento (unidades)</option>
-              <option value="CROMO">Cromo (gramos)</option>
-              <option value="SILICIO">Silicio (envases)</option>
+              <option value="HIDROFOBICO">💊 Hidrofóbico (pastillas)</option>
+              <option value="ZIRCONIO">⚪ Zirconio (pastillas)</option>
+              <option value="CUARZO">💎 Cuarzo (unidades)</option>
+              <option value="FILAMENTO">🧵 Filamento (unidades)</option>
+              <option value="CROMO">⚙️ Cromo (tarros)</option>
+              <option value="SILICIO">🧴 Silicio (tarros)</option>
             </select>
           </div>
           <div class="form-group">
@@ -1119,6 +1342,22 @@
             <input type="text" id="movLote" placeholder="Ej: L-2026-001" />
           </div>
           <div class="form-group">
+            <label>Costo total del lote
+              <span style="font-weight:normal; color:var(--text-muted); font-size:0.78rem;">(solo en entradas)</span>
+            </label>
+            <input type="number" id="movCosto" min="0" step="0.01" value="0" placeholder="$" />
+          </div>
+        </div>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label>Proveedor (opcional)</label>
+            <input type="text" id="movProveedor" placeholder="Nombre del proveedor" />
+          </div>
+          <div class="form-group">
+            <label>N° Factura (opcional)</label>
+            <input type="text" id="movFactura" placeholder="FAC-001" />
+          </div>
+          <div class="form-group">
             <label>Observaciones</label>
             <input type="text" id="movObs" placeholder="Notas..." />
           </div>
@@ -1131,13 +1370,15 @@
         <div class="table-wrapper">
           <table>
             <thead>
-              <tr>
+              <tr id="movimientosTableHead">
                 <th>FECHA</th>
                 <th>INSUMO</th>
                 <th>TIPO</th>
                 <th>CANTIDAD</th>
                 <th>LOTE</th>
-                <th>STOCK RESULTANTE</th>
+                <th class="col-costo">COSTO LOTE</th>
+                <th class="col-costo">COSTO UNIT.</th>
+                <th>STOCK</th>
                 <th>OBSERVACIONES</th>
                 <th>Acciones</th>
               </tr>
@@ -1302,6 +1543,149 @@
           <li>📡 <strong>Sin internet:</strong> la app sigue funcionando, sincroniza al recuperar conexión</li>
           <li>🔒 <strong>Seguridad:</strong> tu URL es única y secreta, no la compartas</li>
         </ul>
+      </div>
+    </div>
+
+    <!-- ============ COSTOS ============ -->
+    <div class="page" id="page-costos">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>Costos y Rentabilidad</h2>
+          <p>Inversión en insumos y costo por ciclo</p>
+        </div>
+      </div>
+
+      <div class="costos-summary">
+        <div class="stat-card verde">
+          <div class="stat-label">Inversión total acumulada</div>
+          <div class="stat-value" id="costoTotalInversion">$0</div>
+          <div class="stat-sub">Suma de todas las entradas</div>
+        </div>
+        <div class="stat-card azul">
+          <div class="stat-label">Inversión este mes</div>
+          <div class="stat-value" id="costoMesActual">$0</div>
+          <div class="stat-sub" id="costoMesDetalle">—</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-label">Costo por ciclo (verde)</div>
+          <div class="stat-value" id="costoCicloVerde">$0</div>
+          <div class="stat-sub">Promedio histórico</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-label">Costo por ciclo (azul)</div>
+          <div class="stat-value" id="costoCicloAzul">$0</div>
+          <div class="stat-sub">Promedio histórico</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>💵 Costo unitario actual de insumos</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>INSUMO</th>
+                <th>STOCK ACTUAL</th>
+                <th>COSTO PROMEDIO UNIT.</th>
+                <th>VALOR EN STOCK</th>
+                <th>ÚLTIMO LOTE</th>
+                <th>ÚLTIMO PROVEEDOR</th>
+              </tr>
+            </thead>
+            <tbody id="costosInsumosTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📈 Histórico de compras</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>FECHA</th>
+                <th>INSUMO</th>
+                <th>CANTIDAD</th>
+                <th>COSTO LOTE</th>
+                <th>COSTO UNIT.</th>
+                <th>LOTE</th>
+                <th>PROVEEDOR</th>
+                <th>FACTURA</th>
+              </tr>
+            </thead>
+            <tbody id="historicoComprasTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📊 Inversión por insumo (acumulado)</h3>
+        <div class="chart-container" style="height: 280px;">
+          <canvas id="chartCostos"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ADMINISTRACIÓN ============ -->
+    <div class="page" id="page-admin">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>Administración de Usuarios</h2>
+          <p>Gestiona quién puede acceder y qué puede ver</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>👥 Usuarios del sistema</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>USUARIO</th>
+                <th>NOMBRE</th>
+                <th>ROL</th>
+                <th>ESTADO</th>
+                <th>PERMISOS</th>
+                <th>ACCIONES</th>
+              </tr>
+            </thead>
+            <tbody id="usuariosTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>➕ Crear nuevo usuario</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nombre completo</label>
+            <input type="text" id="newUserNombre" placeholder="Juan Pérez" />
+          </div>
+          <div class="form-group">
+            <label>Usuario (sin espacios)</label>
+            <input type="text" id="newUserUsuario" placeholder="juanp" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Contraseña inicial</label>
+            <input type="password" id="newUserPassword" placeholder="••••••••" />
+          </div>
+          <div class="form-group">
+            <label>Rol</label>
+            <select id="newUserRol" onchange="updatePermisosCheckboxes()">
+              <option value="operario">👷 Operario</option>
+              <option value="admin">🛡️ Administrador</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label style="font-weight:500; color:var(--text-secondary);">Permisos del usuario:</label>
+          <div class="permisos-grid" id="newUserPermisos"></div>
+        </div>
+
+        <button class="btn btn-success" onclick="createNewUser()" style="margin-top:16px;">✨ Crear usuario</button>
       </div>
     </div>
 
@@ -1495,7 +1879,20 @@ function dataToRows(type) {
       else if (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') stockMap[m.insumo] -= m.cantidad;
       else if (m.tipo === 'AGOTADO' || m.tipo === 'REEMPLAZO') stockMap[m.insumo] = 0;
       const def = INSUMOS_DEF[m.insumo] || { unidad: '' };
-      rows.push([formatDateDisplay(m.fecha), m.insumo, m.tipo, m.cantidad, def.unidad, m.lote || '', Math.max(0, stockMap[m.insumo]).toFixed(2), m.observaciones || '']);
+      rows.push([
+        formatDateDisplay(m.fecha),
+        m.insumo,
+        m.tipo,
+        m.cantidad,
+        def.unidad,
+        m.lote || '',
+        m.costoLote || 0,
+        m.costoUnitario || 0,
+        m.proveedor || '',
+        m.factura || '',
+        Math.max(0, stockMap[m.insumo]).toFixed(2),
+        m.observaciones || ''
+      ]);
     });
   }
   return rows;
@@ -1616,7 +2013,7 @@ async function pullAllFromSheets() {
           });
         });
 
-        // Parsear MOVIMIENTOS
+        // Parsear MOVIMIENTOS (nuevo orden v2: fecha, insumo, tipo, cantidad, unidad, lote, costoLote, costoUnitario, proveedor, factura, stockResultante, observaciones)
         state.movimientos = [];
         (result.data.movimientos || []).forEach(r => {
           if (!r[0]) return;
@@ -1629,7 +2026,11 @@ async function pullAllFromSheets() {
             tipo: String(r[2] || '').toUpperCase(),
             cantidad: parseFloat(r[3]) || 0,
             lote: String(r[5] || ''),
-            observaciones: String(r[7] || ''),
+            costoLote: parseFloat(r[6]) || 0,
+            costoUnitario: parseFloat(r[7]) || 0,
+            proveedor: String(r[8] || ''),
+            factura: String(r[9] || ''),
+            observaciones: String(r[11] || ''),
           });
         });
 
@@ -1694,6 +2095,695 @@ async function initGSheets() {
   updateGSStatusUI();
 }
 
+// ================================================================
+// MÓDULO LOGIN, USUARIOS Y PERMISOS
+// ================================================================
+let currentUser = null;
+let allUsers = [];
+
+const PERMISOS_LIST = [
+  { key: 'dashboard',  label: '📊 Dashboard' },
+  { key: 'ciclos',     label: '📅 Ciclos Realizados' },
+  { key: 'pendientes', label: '⏳ Ciclos Pendientes' },
+  { key: 'turnos',     label: '👥 Turnos' },
+  { key: 'insumos',    label: '📦 Insumos' },
+  { key: 'costos',     label: '💰 Costos' },
+  { key: 'reportes',   label: '📁 Reportes' },
+  { key: 'gsheets',    label: '☁️ Google Sheets' },
+  { key: 'admin',      label: '🛡️ Administración' },
+];
+
+// === Mostrar/ocultar secciones del login ===
+function showLoginSection(section) {
+  document.getElementById('loginConfigSection').style.display = section === 'config' ? 'block' : 'none';
+  document.getElementById('loginBootstrapSection').style.display = section === 'bootstrap' ? 'block' : 'none';
+  document.getElementById('loginFormSection').style.display = section === 'login' ? 'block' : 'none';
+}
+
+function showLoginConfig() {
+  document.getElementById('loginGsUrl').value = GS.WEB_APP_URL || '';
+  showLoginSection('config');
+}
+
+function loginShowError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function loginClearError() {
+  document.getElementById('loginError').classList.remove('show');
+}
+
+function loginSaveUrl() {
+  const url = document.getElementById('loginGsUrl').value.trim();
+  if (!url || !url.includes('script.google.com')) {
+    showToast('URL no parece válida', 'error');
+    return;
+  }
+  let cleanUrl = url;
+  GS.WEB_APP_URL = cleanUrl;
+  try {
+    localStorage.setItem('gs_config', JSON.stringify({ webAppUrl: cleanUrl, autoSync: true }));
+  } catch(e) {}
+  showToast('URL guardada. Verificando...');
+  setTimeout(() => initLoginFlow(), 600);
+}
+
+// === Inicialización del flujo de login ===
+async function initLoginFlow() {
+  loadGSConfig();
+  if (!GS.WEB_APP_URL) {
+    showLoginSection('config');
+    return;
+  }
+  // Verificar si necesita bootstrap
+  try {
+    const resp = await fetch(GS.WEB_APP_URL + '?action=checkBootstrap');
+    const data = await resp.json();
+    if (!data.ok) {
+      loginShowError('Error de backend: ' + (data.error || 'Desconocido'));
+      showLoginSection('login');
+      return;
+    }
+    if (data.needsBootstrap) {
+      showLoginSection('bootstrap');
+    } else {
+      showLoginSection('login');
+      // Restaurar sesión si existe
+      tryRestoreSession();
+    }
+  } catch (err) {
+    loginShowError('No se pudo conectar con el backend. Verifica la URL.');
+    showLoginSection('login');
+  }
+}
+
+async function tryRestoreSession() {
+  try {
+    const saved = localStorage.getItem('ar_session');
+    if (saved) {
+      const sess = JSON.parse(saved);
+      // Validar que la sesión no sea muy vieja (>30 días)
+      if (sess.timestamp && (Date.now() - sess.timestamp < 30 * 86400000)) {
+        currentUser = sess.user;
+        await onLoginSuccess(false);
+        return true;
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
+// === Bootstrap del primer admin ===
+async function bootstrapAdmin() {
+  const nombre = document.getElementById('bootNombre').value.trim();
+  const usuario = document.getElementById('bootUsuario').value.trim();
+  const password = document.getElementById('bootPassword').value;
+
+  if (!nombre || !usuario || !password) {
+    showToast('Completa todos los campos', 'error'); return;
+  }
+  if (password.length < 4) {
+    showToast('La contraseña debe tener al menos 4 caracteres', 'error'); return;
+  }
+
+  try {
+    const resp = await fetch(GS.WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'bootstrapAdmin', nombre, usuario, password }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      showToast('✓ Administrador creado correctamente');
+      currentUser = data.user;
+      await onLoginSuccess(true);
+    } else {
+      showToast('Error: ' + (data.error || 'Desconocido'), 'error');
+    }
+  } catch (err) {
+    showToast('Error de conexión: ' + err.message, 'error');
+  }
+}
+
+// === Login normal ===
+async function doLogin() {
+  loginClearError();
+  const usuario = document.getElementById('loginUsuario').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!usuario || !password) {
+    loginShowError('Ingresa usuario y contraseña');
+    return;
+  }
+
+  try {
+    const resp = await fetch(GS.WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'login', usuario, password }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      currentUser = data.user;
+      await onLoginSuccess(true);
+    } else {
+      loginShowError(data.error || 'Error al iniciar sesión');
+      if (data.needsBootstrap) {
+        setTimeout(() => showLoginSection('bootstrap'), 1500);
+      }
+    }
+  } catch (err) {
+    loginShowError('Error de conexión: ' + err.message);
+  }
+}
+
+async function onLoginSuccess(saveSession) {
+  // Guardar sesión
+  if (saveSession) {
+    try {
+      localStorage.setItem('ar_session', JSON.stringify({
+        user: currentUser, timestamp: Date.now()
+      }));
+    } catch(e) {}
+  }
+
+  // Ocultar overlay de login
+  document.getElementById('loginOverlay').style.display = 'none';
+
+  // Configurar UI según rol y permisos
+  applyUserPermissions();
+  updateUserBadge();
+
+  // Marcar conectado para el módulo GS
+  GS.isConnected = true;
+  updateSyncStatus('connected', 'Conectado');
+  if (document.getElementById('btnPushAll')) document.getElementById('btnPushAll').disabled = false;
+  if (document.getElementById('btnPullAll')) document.getElementById('btnPullAll').disabled = false;
+  updateGSStatusUI();
+
+  // Bajar datos del backend (silencioso, sin modal)
+  await pullAllSilent();
+  refreshAll();
+
+  showToast(`Bienvenido, ${currentUser.nombre}`);
+}
+
+async function pullAllSilent() {
+  try {
+    const resp = await fetch(GS.WEB_APP_URL + '?action=getAll');
+    const result = await resp.json();
+    if (!result.ok) return;
+    parseDataIntoState(result.data);
+    saveStateLocal();
+  } catch (e) { console.warn('Pull silencioso falló', e); }
+}
+
+function parseDataIntoState(data) {
+  state.ciclos = [];
+  (data.ciclos || []).forEach(r => {
+    if (!r[0]) return;
+    const fecha = parseFechaExcel(r[0]);
+    if (!fecha) return;
+    const cicloTxt = String(r[1] || '');
+    const color = String(r[2] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE';
+    const cMatch = cicloTxt.match(/(\d+)\s*ciclo/i);
+    const mMatch = cicloTxt.match(/(\d+)\s*medio/i);
+    const ciclos = cMatch ? parseInt(cMatch[1]) : 0;
+    const medios = mMatch ? parseInt(mMatch[1]) : 0;
+    if (ciclos > 0 || medios > 0) {
+      state.ciclos.push({ id: generateId(), fecha, ciclos, mediosCiclos: medios, color });
+    }
+  });
+  state.pendientes = [];
+  (data.pendientes || []).forEach(r => {
+    if (!r[0]) return;
+    const fReg = parseFechaExcel(r[0]);
+    const fEj = parseFechaExcel(r[1]) || fReg;
+    if (!fEj) return;
+    state.pendientes.push({
+      id: generateId(), fechaRegistro: fReg, fechaEjecucion: fEj,
+      ciclos: parseInt(r[2]) || 0, medios: parseInt(r[3]) || 0,
+      color: String(r[4] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE',
+    });
+  });
+  state.turnos = [];
+  (data.turnos || []).forEach(r => {
+    if (!r[0]) return;
+    const fecha = parseFechaExcel(r[0]);
+    if (!fecha) return;
+    state.turnos.push({
+      id: generateId(), fecha,
+      operaria: String(r[1] || ''), horaInicio: String(r[2] || ''),
+      horaFin: String(r[3] || ''), horas: String(r[4] || ''),
+      ciclosAsignados: String(r[5] || ''), observaciones: String(r[6] || ''),
+    });
+  });
+  state.movimientos = [];
+  (data.movimientos || []).forEach(r => {
+    if (!r[0]) return;
+    const fecha = parseFechaExcel(r[0]);
+    if (!fecha) return;
+    state.movimientos.push({
+      id: generateId(), fecha,
+      insumo: String(r[1] || '').toUpperCase(),
+      tipo: String(r[2] || '').toUpperCase(),
+      cantidad: parseFloat(r[3]) || 0,
+      lote: String(r[5] || ''),
+      costoLote: parseFloat(r[6]) || 0,
+      costoUnitario: parseFloat(r[7]) || 0,
+      proveedor: String(r[8] || ''),
+      factura: String(r[9] || ''),
+      observaciones: String(r[11] || ''),
+    });
+  });
+}
+
+function saveStateLocal() {
+  try { localStorage.setItem('ar_state', JSON.stringify(state)); } catch(e) {}
+}
+
+function refreshAll() {
+  renderCalendar();
+  renderRecordsTable();
+  renderPendientes();
+  renderTurnos();
+  refreshInsumos();
+  refreshDashboard();
+  refreshCostos();
+}
+
+// === Aplicar permisos: ocultar items del sidebar y páginas no permitidas ===
+function applyUserPermissions() {
+  if (!currentUser || !currentUser.permisos) return;
+  const perms = currentUser.permisos;
+
+  // Items del sidebar
+  document.querySelectorAll('.nav-item[data-perm]').forEach(item => {
+    const perm = item.dataset.perm;
+    if (perms[perm]) {
+      item.style.display = '';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+
+  // Mostrar/ocultar columnas de costos en tablas
+  if (perms.costos) {
+    document.body.classList.remove('hide-costos');
+  } else {
+    document.body.classList.add('hide-costos');
+  }
+
+  // Si la página actual no es accesible, ir al dashboard
+  const activeNav = document.querySelector('.nav-item.active');
+  if (activeNav && activeNav.dataset.perm && !perms[activeNav.dataset.perm]) {
+    // Encontrar la primera página accesible
+    const firstAvail = document.querySelector('.nav-item[data-perm]:not([style*="none"])');
+    if (firstAvail) firstAvail.click();
+  }
+}
+
+function updateUserBadge() {
+  if (!currentUser) return;
+  document.getElementById('userBadgeName').textContent = currentUser.nombre;
+  document.getElementById('userBadgeRole').textContent =
+    (currentUser.rol === 'admin' ? '🛡️ Administrador' : '👷 Operario');
+}
+
+function logout() {
+  showModal('¿Cerrar sesión?', '<p>Volverás a la pantalla de login.</p>', () => {
+    try { localStorage.removeItem('ar_session'); } catch(e) {}
+    currentUser = null;
+    document.getElementById('loginUsuario').value = '';
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('loginOverlay').style.display = 'flex';
+    initLoginFlow();
+  }, 'Sí, cerrar sesión');
+}
+
+function changeOwnPassword() {
+  showModal('Cambiar mi contraseña',
+    `<div class="form-group">
+      <label>Nueva contraseña (mín. 4 caracteres)</label>
+      <input type="password" id="changePassInput" placeholder="••••••••" />
+    </div>`,
+    async () => {
+      const newPass = document.getElementById('changePassInput').value;
+      if (!newPass || newPass.length < 4) {
+        showToast('Contraseña muy corta', 'error'); return;
+      }
+      try {
+        const resp = await fetch(GS.WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'changePassword', userId: currentUser.id, newPassword: newPass }),
+        });
+        const data = await resp.json();
+        if (data.ok) showToast('✓ Contraseña actualizada');
+        else showToast('Error: ' + data.error, 'error');
+      } catch(e) { showToast('Error de conexión', 'error'); }
+    },
+    'Cambiar'
+  );
+}
+
+// === Gestión de usuarios (admin) ===
+async function loadUsers() {
+  try {
+    const resp = await fetch(GS.WEB_APP_URL + '?action=getUsers');
+    const data = await resp.json();
+    if (data.ok) {
+      allUsers = data.users || [];
+      renderUsuariosTable();
+    }
+  } catch (e) { console.error('Error cargando usuarios', e); }
+}
+
+function renderUsuariosTable() {
+  const tbody = document.getElementById('usuariosTable');
+  if (!tbody) return;
+  if (allUsers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><h4>No hay usuarios</h4></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allUsers.map(u => {
+    const rolBadge = u.rol === 'admin'
+      ? '<span class="badge badge-cyan">🛡️ Admin</span>'
+      : '<span class="badge badge-amber">👷 Operario</span>';
+    const estadoBadge = u.activo
+      ? '<span class="badge badge-verde">✓ Activo</span>'
+      : '<span class="badge badge-red">✗ Inactivo</span>';
+    const permCount = Object.values(u.permisos || {}).filter(v => v).length;
+    return `<tr>
+      <td><strong>${u.usuario}</strong></td>
+      <td>${u.nombre}</td>
+      <td>${rolBadge}</td>
+      <td>${estadoBadge}</td>
+      <td><span class="badge badge-gray">${permCount} permisos</span></td>
+      <td>
+        <button class="icon-btn" onclick="editUserPermisos('${u.id}')">⚙️ Permisos</button>
+        <button class="icon-btn" onclick="resetUserPassword('${u.id}')">🔑 Contraseña</button>
+        <button class="icon-btn" onclick="toggleUserActive('${u.id}')">${u.activo ? '🔒 Desactivar' : '🔓 Activar'}</button>
+        ${u.id !== currentUser.id ? `<button class="icon-btn danger" onclick="deleteUserConfirm('${u.id}')">🗑️</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function updatePermisosCheckboxes(currentPermisos) {
+  const cont = document.getElementById('newUserPermisos');
+  if (!cont) return;
+  const rol = document.getElementById('newUserRol').value;
+  const defaults = currentPermisos || (rol === 'admin' ? {
+    dashboard: true, ciclos: true, pendientes: true, turnos: true,
+    insumos: true, costos: true, reportes: true, gsheets: true, admin: true
+  } : {
+    dashboard: true, ciclos: true, pendientes: true, turnos: false,
+    insumos: false, costos: false, reportes: false, gsheets: false, admin: false
+  });
+  cont.innerHTML = PERMISOS_LIST.map(p => `
+    <div class="permiso-item" onclick="document.getElementById('perm-${p.key}').click();">
+      <input type="checkbox" id="perm-${p.key}" data-perm="${p.key}" ${defaults[p.key] ? 'checked' : ''} onclick="event.stopPropagation();" />
+      <label>${p.label}</label>
+    </div>
+  `).join('');
+}
+
+function getPermisosFromCheckboxes() {
+  const perms = {};
+  document.querySelectorAll('#newUserPermisos input[data-perm]').forEach(cb => {
+    perms[cb.dataset.perm] = cb.checked;
+  });
+  return perms;
+}
+
+async function createNewUser() {
+  const nombre = document.getElementById('newUserNombre').value.trim();
+  const usuario = document.getElementById('newUserUsuario').value.trim();
+  const password = document.getElementById('newUserPassword').value;
+  const rol = document.getElementById('newUserRol').value;
+
+  if (!nombre || !usuario || !password) {
+    showToast('Completa todos los campos', 'error'); return;
+  }
+  if (password.length < 4) {
+    showToast('Contraseña muy corta (mín 4)', 'error'); return;
+  }
+  if (/\s/.test(usuario)) {
+    showToast('El usuario no puede tener espacios', 'error'); return;
+  }
+
+  const permisos = getPermisosFromCheckboxes();
+
+  try {
+    const resp = await fetch(GS.WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'createUser', nombre, usuario, password, rol, permisos }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      showToast(`✓ Usuario "${usuario}" creado`);
+      document.getElementById('newUserNombre').value = '';
+      document.getElementById('newUserUsuario').value = '';
+      document.getElementById('newUserPassword').value = '';
+      loadUsers();
+    } else {
+      showToast('Error: ' + data.error, 'error');
+    }
+  } catch (err) {
+    showToast('Error de conexión: ' + err.message, 'error');
+  }
+}
+
+function editUserPermisos(userId) {
+  const user = allUsers.find(u => u.id === userId);
+  if (!user) return;
+  const perms = user.permisos || {};
+  const html = `
+    <p style="margin-bottom:12px; color:var(--text-secondary);">Permisos para <strong>${user.nombre}</strong>:</p>
+    <div class="permisos-grid" id="editUserPermisos">
+      ${PERMISOS_LIST.map(p => `
+        <div class="permiso-item" onclick="document.getElementById('eperm-${p.key}').click();">
+          <input type="checkbox" id="eperm-${p.key}" data-perm="${p.key}" ${perms[p.key] ? 'checked' : ''} onclick="event.stopPropagation();" />
+          <label>${p.label}</label>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  showModal('Editar permisos', html, async () => {
+    const newPerms = {};
+    document.querySelectorAll('#editUserPermisos input[data-perm]').forEach(cb => {
+      newPerms[cb.dataset.perm] = cb.checked;
+    });
+    try {
+      const resp = await fetch(GS.WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'updateUser', userId, permisos: newPerms }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        showToast('✓ Permisos actualizados');
+        loadUsers();
+        // Si edité mi propio usuario, recargar UI
+        if (userId === currentUser.id) {
+          currentUser.permisos = newPerms;
+          applyUserPermissions();
+        }
+      } else showToast('Error: ' + data.error, 'error');
+    } catch(e) { showToast('Error de conexión', 'error'); }
+  }, 'Guardar');
+}
+
+function resetUserPassword(userId) {
+  const user = allUsers.find(u => u.id === userId);
+  if (!user) return;
+  showModal(`Resetear contraseña de ${user.nombre}`,
+    `<div class="form-group">
+      <label>Nueva contraseña (mín. 4 caracteres)</label>
+      <input type="password" id="resetPassInput" />
+    </div>`,
+    async () => {
+      const newPass = document.getElementById('resetPassInput').value;
+      if (!newPass || newPass.length < 4) { showToast('Muy corta', 'error'); return; }
+      try {
+        const resp = await fetch(GS.WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'changePassword', userId, newPassword: newPass }),
+        });
+        const data = await resp.json();
+        if (data.ok) showToast('✓ Contraseña actualizada');
+        else showToast('Error: ' + data.error, 'error');
+      } catch(e) { showToast('Error', 'error'); }
+    }, 'Resetear'
+  );
+}
+
+async function toggleUserActive(userId) {
+  const user = allUsers.find(u => u.id === userId);
+  if (!user) return;
+  try {
+    const resp = await fetch(GS.WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'updateUser', userId, activo: !user.activo }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      showToast(`Usuario ${user.activo ? 'desactivado' : 'activado'}`);
+      loadUsers();
+    } else showToast('Error: ' + data.error, 'error');
+  } catch(e) { showToast('Error', 'error'); }
+}
+
+function deleteUserConfirm(userId) {
+  const user = allUsers.find(u => u.id === userId);
+  if (!user) return;
+  showModal('¿Eliminar usuario?',
+    `<p>Se eliminará permanentemente <strong>${user.usuario}</strong> (${user.nombre}). Esta acción no se puede deshacer.</p>`,
+    async () => {
+      try {
+        const resp = await fetch(GS.WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'deleteUser', userId }),
+        });
+        const data = await resp.json();
+        if (data.ok) { showToast('✓ Usuario eliminado'); loadUsers(); }
+        else showToast('Error: ' + data.error, 'error');
+      } catch(e) { showToast('Error', 'error'); }
+    }, 'Sí, eliminar'
+  );
+}
+
+// ================================================================
+// MÓDULO COSTOS
+// ================================================================
+let chartCostos = null;
+
+function refreshCostos() {
+  const total = state.movimientos
+    .filter(m => m.tipo === 'ENTRADA')
+    .reduce((s, m) => s + (m.costoLote || 0), 0);
+  document.getElementById('costoTotalInversion').textContent = '$' + total.toLocaleString('es-CO');
+
+  const now = new Date();
+  const prefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const mesEntradas = state.movimientos.filter(m => m.tipo === 'ENTRADA' && m.fecha.startsWith(prefix));
+  const totalMes = mesEntradas.reduce((s,m) => s + (m.costoLote || 0), 0);
+  document.getElementById('costoMesActual').textContent = '$' + totalMes.toLocaleString('es-CO');
+  document.getElementById('costoMesDetalle').textContent = `${mesEntradas.length} compra(s) este mes`;
+
+  // Costo por ciclo (promedio): inversión total en HIDROFOBICO+ZIRCONIO+CUARZO / total ciclos
+  const insumosCiclo = ['HIDROFOBICO', 'ZIRCONIO', 'CUARZO'];
+  const promediosUnit = {};
+  insumosCiclo.forEach(k => {
+    const entradas = state.movimientos.filter(m => m.insumo === k && m.tipo === 'ENTRADA' && m.costoUnitario);
+    if (entradas.length > 0) {
+      promediosUnit[k] = entradas.reduce((s,e) => s + e.costoUnitario, 0) / entradas.length;
+    }
+  });
+  // 1 ciclo completo consume 1 de cada uno
+  const costoCicloCompleto = (promediosUnit.HIDROFOBICO || 0) + (promediosUnit.ZIRCONIO || 0) + (promediosUnit.CUARZO || 0);
+  document.getElementById('costoCicloVerde').textContent = '$' + costoCicloCompleto.toLocaleString('es-CO', {maximumFractionDigits: 0});
+  document.getElementById('costoCicloAzul').textContent = '$' + costoCicloCompleto.toLocaleString('es-CO', {maximumFractionDigits: 0});
+
+  renderCostosInsumosTable();
+  renderHistoricoComprasTable();
+  renderChartCostos();
+}
+
+function renderCostosInsumosTable() {
+  const tbody = document.getElementById('costosInsumosTable');
+  if (!tbody) return;
+  let html = '';
+  Object.keys(INSUMOS_DEF).forEach(k => {
+    const def = INSUMOS_DEF[k];
+    const stock = calcularStockPorInsumo(k);
+    const entradas = state.movimientos.filter(m => m.insumo === k && m.tipo === 'ENTRADA' && m.costoUnitario);
+    const costoProm = entradas.length > 0
+      ? entradas.reduce((s,e) => s + e.costoUnitario, 0) / entradas.length : 0;
+    const valorStock = stock * costoProm;
+    const ultEntrada = state.movimientos
+      .filter(m => m.insumo === k && m.tipo === 'ENTRADA')
+      .sort((a,b) => b.fecha.localeCompare(a.fecha))[0];
+    html += `<tr>
+      <td>${def.icon} <strong>${def.nombre}</strong></td>
+      <td>${stock.toFixed(2)} ${def.unidad}</td>
+      <td>${costoProm > 0 ? '$' + costoProm.toLocaleString('es-CO', {maximumFractionDigits:2}) : '—'}</td>
+      <td><strong>${valorStock > 0 ? '$' + valorStock.toLocaleString('es-CO', {maximumFractionDigits:0}) : '—'}</strong></td>
+      <td>${ultEntrada ? (ultEntrada.lote || '—') : '—'}</td>
+      <td>${ultEntrada ? (ultEntrada.proveedor || '—') : '—'}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+function renderHistoricoComprasTable() {
+  const tbody = document.getElementById('historicoComprasTable');
+  if (!tbody) return;
+  const compras = state.movimientos
+    .filter(m => m.tipo === 'ENTRADA' && m.costoLote > 0)
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+  if (compras.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><h4>Sin compras registradas</h4></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = compras.map(m => {
+    const def = INSUMOS_DEF[m.insumo];
+    return `<tr>
+      <td>${formatDateDisplay(m.fecha)}</td>
+      <td>${def ? def.icon + ' ' + def.nombre : m.insumo}</td>
+      <td>${m.cantidad} ${def?def.unidad:''}</td>
+      <td><strong>$${Number(m.costoLote).toLocaleString('es-CO')}</strong></td>
+      <td>$${Number(m.costoUnitario).toLocaleString('es-CO', {maximumFractionDigits:2})}</td>
+      <td>${m.lote || '—'}</td>
+      <td>${m.proveedor || '—'}</td>
+      <td>${m.factura || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderChartCostos() {
+  const ctx = document.getElementById('chartCostos');
+  if (!ctx) return;
+  const labels = [];
+  const data = [];
+  const colors = ['#10b981','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
+  Object.keys(INSUMOS_DEF).forEach((k, i) => {
+    const total = state.movimientos
+      .filter(m => m.insumo === k && m.tipo === 'ENTRADA')
+      .reduce((s,m) => s + (m.costoLote || 0), 0);
+    if (total > 0) {
+      labels.push(INSUMOS_DEF[k].nombre);
+      data.push(total);
+    }
+  });
+  if (chartCostos) chartCostos.destroy();
+  chartCostos = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: colors.slice(0, labels.length), borderColor:'#1c2333', borderWidth:3 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#94a3b8', padding: 12 } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ctx.label + ': $' + ctx.parsed.toLocaleString('es-CO')
+          }
+        }
+      }
+    }
+  });
+}
+
 
 const state = {
   ciclos: [],          // {id, fecha, ciclos, mediosCiclos, color}
@@ -1709,14 +2799,14 @@ let selectedColorPend = 'VERDE';
 let chartProduccion = null;
 let chartColores = null;
 
-// Definición de insumos
+// Definición de insumos (unidades reales)
 const INSUMOS_DEF = {
   HIDROFOBICO: { nombre: 'Hidrofóbico', unidad: 'pastillas', porCiclo: 1, icon: '💊' },
-  ZIRCONIO:    { nombre: 'Zirconio',    unidad: 'unidades',  porCiclo: 1, icon: '⚪' },
+  ZIRCONIO:    { nombre: 'Zirconio',    unidad: 'pastillas', porCiclo: 1, icon: '⚪' },
   CUARZO:      { nombre: 'Cuarzo',      unidad: 'unidades',  porCiclo: 1, icon: '💎' },
   FILAMENTO:   { nombre: 'Filamento',   unidad: 'unidades',  porCiclo: 0, icon: '🧵' },
-  CROMO:       { nombre: 'Cromo',       unidad: 'gramos',    porCiclo: 0, icon: '⚙️' },
-  SILICIO:     { nombre: 'Silicio',     unidad: 'envases',   porCiclo: 0, icon: '🧴' },
+  CROMO:       { nombre: 'Cromo',       unidad: 'tarros',    porCiclo: 0, icon: '⚙️' },
+  SILICIO:     { nombre: 'Silicio',     unidad: 'tarros',    porCiclo: 0, icon: '🧴' },
 };
 
 // ================================================================
@@ -1784,6 +2874,11 @@ document.querySelectorAll('.nav-item').forEach(item => {
     if (page === 'dashboard') refreshDashboard();
     if (page === 'insumos') refreshInsumos();
     if (page === 'gsheets') updateGSStatusUI();
+    if (page === 'costos') refreshCostos();
+    if (page === 'admin') {
+      loadUsers();
+      updatePermisosCheckboxes();
+    }
   });
 });
 
@@ -2343,6 +3438,9 @@ function saveMovimiento() {
   const tipo = document.getElementById('movTipo').value;
   const cantidad = parseFloat(document.getElementById('movCantidad').value) || 0;
   const lote = document.getElementById('movLote').value;
+  const costoLote = parseFloat(document.getElementById('movCosto').value) || 0;
+  const proveedor = document.getElementById('movProveedor').value;
+  const factura = document.getElementById('movFactura').value;
   const obs = document.getElementById('movObs').value;
 
   if (!fecha) { showToast('Selecciona una fecha','error'); return; }
@@ -2350,9 +3448,18 @@ function saveMovimiento() {
     showToast('Cantidad debe ser mayor a 0', 'warning'); return;
   }
 
+  // Costo unitario (lote / cantidad), solo para entradas
+  const costoUnitario = (tipo === 'ENTRADA' && cantidad > 0)
+    ? (costoLote / cantidad) : 0;
+
   state.movimientos.push({
     id: generateId(),
-    fecha, insumo, tipo, cantidad, lote, observaciones: obs
+    fecha, insumo, tipo, cantidad, lote,
+    costoLote: tipo === 'ENTRADA' ? costoLote : 0,
+    costoUnitario: tipo === 'ENTRADA' ? costoUnitario : 0,
+    proveedor: tipo === 'ENTRADA' ? proveedor : '',
+    factura: tipo === 'ENTRADA' ? factura : '',
+    observaciones: obs
   });
 
   saveState();
@@ -2360,6 +3467,9 @@ function saveMovimiento() {
   showToast('Movimiento registrado');
   document.getElementById('movCantidad').value = 0;
   document.getElementById('movLote').value = '';
+  document.getElementById('movCosto').value = 0;
+  document.getElementById('movProveedor').value = '';
+  document.getElementById('movFactura').value = '';
   document.getElementById('movObs').value = '';
 }
 
@@ -2436,16 +3546,15 @@ function renderInsumosCards() {
 
 function renderMovimientos() {
   const tbody = document.getElementById('movimientosTable');
+  const colspan = currentUser && currentUser.permisos && currentUser.permisos.costos ? 10 : 8;
   if (state.movimientos.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><h4>No hay movimientos</h4></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colspan}" class="empty-state"><h4>No hay movimientos</h4></td></tr>`;
     return;
   }
   const sorted = [...state.movimientos].sort((a,b) => b.fecha.localeCompare(a.fecha));
 
-  // Calcular stock acumulado por insumo
   const stockAcum = {};
   Object.keys(INSUMOS_DEF).forEach(k => stockAcum[k] = 0);
-  // Procesar de antiguo a nuevo para tener stock real
   const cronological = [...state.movimientos].sort((a,b) =>
     a.fecha.localeCompare(b.fecha) || a.id.localeCompare(b.id));
   const stockMap = {};
@@ -2457,6 +3566,8 @@ function renderMovimientos() {
     m._stockSnapshot = Math.max(0, stockMap[m.insumo]);
   });
 
+  const showCostos = currentUser && currentUser.permisos && currentUser.permisos.costos;
+
   tbody.innerHTML = sorted.map(m => {
     const def = INSUMOS_DEF[m.insumo];
     const tipoLabels = {
@@ -2467,12 +3578,17 @@ function renderMovimientos() {
       CONSUMO_AUTO: '<span class="badge badge-azul">🤖 Auto</span>',
       REEMPLAZO: '<span class="badge badge-amber">🔄 Reemplazo</span>',
     };
+    const costoHtml = showCostos ? `
+      <td>${m.costoLote ? '$' + Number(m.costoLote).toLocaleString('es-CO') : '—'}</td>
+      <td>${m.costoUnitario ? '$' + Number(m.costoUnitario).toLocaleString('es-CO', {maximumFractionDigits: 2}) : '—'}</td>
+    ` : '';
     return `<tr>
       <td>${formatDateDisplay(m.fecha)}</td>
       <td>${def ? def.icon + ' ' + def.nombre : m.insumo}</td>
       <td>${tipoLabels[m.tipo] || m.tipo}</td>
       <td><strong>${m.cantidad}</strong> ${def?def.unidad:''}</td>
       <td>${m.lote || '—'}</td>
+      ${costoHtml}
       <td>${(m._stockSnapshot || 0).toFixed(2)}</td>
       <td style="font-size:0.82rem;">${m.observaciones || '—'}</td>
       <td><button class="icon-btn danger" onclick="deleteMovimiento('${m.id}')">🗑️</button></td>
@@ -3105,10 +4221,18 @@ renderTurnos();
 refreshInsumos();
 refreshDashboard();
 
-// Inicializar integración Google Sheets vía Apps Script
+// Permitir Enter en login
+document.getElementById('loginPassword').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') doLogin();
+});
+document.getElementById('bootPassword').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') bootstrapAdmin();
+});
+
+// Iniciar el flujo: login primero
 setTimeout(() => {
-  initGSheets();
-}, 500);
+  initLoginFlow();
+}, 200);
 
 </script>
 </body>
