@@ -1442,26 +1442,40 @@ async function initializeGapiClient() {
   if (!GS.API_KEY) return;
   try {
     await gapi.client.init({ apiKey: GS.API_KEY });
-    // Cargar el discovery doc de Sheets explícitamente
-    await gapi.client.load(GS.DISCOVERY_DOC);
+    // Cargar la API de Sheets v4 explícitamente
+    // Usamos el método (name, version) que es más robusto que pasar URL completa
+    await gapi.client.load('sheets', 'v4');
     GS.gapiInited = true;
-    console.log('GAPI + Sheets discovery OK. gapi.client.sheets:', typeof gapi.client.sheets);
+    console.log('GAPI + Sheets API v4 cargada. sheets disponible:', !!gapi.client.sheets);
     maybeEnableButtons();
   } catch (err) {
-    console.error('Error inicializando GAPI', err);
-    updateSyncStatus('error', 'Error de configuración');
+    console.error('Error inicializando GAPI:', err);
+    const errMsg = extractErrorMessage(err);
+    updateSyncStatus('error', 'Error config');
+    showToast('Error inicializando GAPI: ' + errMsg, 'error');
   }
+}
+
+// Extrae el mensaje de error real de las distintas formas que tienen los errores de gapi
+function extractErrorMessage(err) {
+  if (!err) return 'Error desconocido';
+  if (typeof err === 'string') return err;
+  if (err.message) return err.message;
+  if (err.result?.error?.message) return err.result.error.message;
+  if (err.error) return typeof err.error === 'string' ? err.error : JSON.stringify(err.error);
+  if (err.details) return err.details;
+  try { return JSON.stringify(err); } catch(e) { return 'Error sin detalles'; }
 }
 
 // Asegura que el discovery de Sheets esté cargado antes de cualquier llamada
 async function ensureSheetsApi() {
   if (gapi.client.sheets) return true;
-  console.warn('gapi.client.sheets no disponible, recargando discovery...');
+  console.warn('gapi.client.sheets no disponible, recargando...');
   try {
-    await gapi.client.load(GS.DISCOVERY_DOC);
+    await gapi.client.load('sheets', 'v4');
     return !!gapi.client.sheets;
   } catch (e) {
-    console.error('No se pudo recargar el discovery de Sheets:', e);
+    console.error('No se pudo recargar Sheets API:', e);
     return false;
   }
 }
@@ -1525,18 +1539,33 @@ function handleAuthClick() {
       return;
     }
 
-    // Tras obtener el token, forzar carga del discovery de Sheets
-    // para garantizar que gapi.client.sheets esté disponible
-    try {
-      await gapi.client.load(GS.DISCOVERY_DOC);
-      console.log('Discovery Sheets cargado post-auth. gapi.client.sheets:', typeof gapi.client.sheets);
-    } catch (e) {
-      console.warn('Discovery post-auth falló, reintentando...', e);
-      await new Promise(r => setTimeout(r, 800));
-      try { await gapi.client.load(GS.DISCOVERY_DOC); } catch (e2) {
-        showToast('Error cargando API de Sheets: ' + e2.message, 'error');
-        return;
+    // Tras obtener el token, asegurar que la API de Sheets esté lista
+    let sheetsLoaded = false;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        if (!gapi.client.sheets) {
+          await gapi.client.load('sheets', 'v4');
+        }
+        if (gapi.client.sheets) {
+          sheetsLoaded = true;
+          console.log(`Sheets API lista (intento ${attempt}). Métodos:`, Object.keys(gapi.client.sheets));
+          break;
+        }
+      } catch (e) {
+        lastError = e;
+        console.warn(`Intento ${attempt} de cargar Sheets API falló:`, e);
+        await new Promise(r => setTimeout(r, 600 * attempt));
       }
+    }
+
+    if (!sheetsLoaded) {
+      const msg = extractErrorMessage(lastError);
+      console.error('Detalle del error:', lastError);
+      showToast('No se pudo cargar la API de Sheets: ' + msg, 'error');
+      updateSyncStatus('error', 'Error API');
+      return;
     }
 
     GS.isConnected = true;
@@ -1722,7 +1751,7 @@ async function pushToSheets(type) {
     return true;
   } catch (err) {
     console.error(`Error subiendo ${type}:`, err);
-    const msg = err.result?.error?.message || err.message || JSON.stringify(err);
+    const msg = extractErrorMessage(err);
     showToast(`Error al subir ${type}: ${msg}`, 'error');
     return false;
   }
