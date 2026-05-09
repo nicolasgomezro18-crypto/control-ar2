@@ -897,6 +897,10 @@
 
   /* Ocultar columna de costos para no-admins */
   body.hide-costos .col-costo { display: none; }
+
+  /* Ocultar botones de eliminar para operarios */
+  body.hide-delete .icon-btn.danger { display: none !important; }
+  body.hide-delete .delete-btn { display: none !important; }
 </style>
 </head>
 <body>
@@ -1131,6 +1135,23 @@
               </div>
             </div>
             <button class="btn btn-success" style="width:100%" onclick="saveRecord()">✓ Guardar</button>
+
+            <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border-color);">
+              <label style="font-weight:500; color:var(--text-secondary); font-size:0.85rem; display:block; margin-bottom:8px;">
+                🧵 Reportar filamento roto
+              </label>
+              <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+                Si el filamento se rompió durante un ciclo, indica en qué ciclo (1, 2, 3...) y se descontará automáticamente.
+              </p>
+              <div class="form-row" style="gap:10px;">
+                <div class="form-group" style="margin:0;">
+                  <input type="number" id="filamentoCicloNum" min="1" step="1" placeholder="N° de ciclo" />
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <button class="btn btn-warning" style="width:100%;" onclick="reportFilamentoRoto()">🧵 Reportar</button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="card">
@@ -1312,43 +1333,52 @@
           </div>
           <div class="form-group">
             <label>Insumo</label>
-            <select id="movInsumo">
+            <select id="movInsumo" onchange="onInsumoChange()">
               <option value="HIDROFOBICO">💊 Hidrofóbico (pastillas)</option>
               <option value="ZIRCONIO">⚪ Zirconio (pastillas)</option>
               <option value="CUARZO">💎 Cuarzo (unidades)</option>
               <option value="FILAMENTO">🧵 Filamento (unidades)</option>
-              <option value="CROMO">⚙️ Cromo (tarros)</option>
-              <option value="SILICIO">🧴 Silicio (tarros)</option>
+              <option value="CROMO">⚙️ Cromo (tarros con gramos)</option>
+              <option value="SILICIO">🧴 Silicio (tarros con gramos)</option>
             </select>
           </div>
           <div class="form-group">
             <label>Tipo de movimiento</label>
-            <select id="movTipo">
-              <option value="ENTRADA">📥 Entrada (compra)</option>
-              <option value="INICIO_USO">▶️ Inicio de uso</option>
-              <option value="AGOTADO">🔚 Agotado</option>
-              <option value="CONSUMO">⚙️ Consumo manual</option>
-              <option value="REEMPLAZO">🔄 Reemplazo (filamento)</option>
+            <select id="movTipo" onchange="onTipoChange()">
+              <option value="ENTRADA">📥 Entrada a BODEGA (compra)</option>
+              <option value="INICIO_USO">▶️ Abrir y empezar a usar</option>
+              <option value="CONSUMO">⚙️ Consumo manual (gramos)</option>
+              <option value="AGOTADO">🔚 Tarro/lote agotado</option>
             </select>
           </div>
         </div>
+
+        <!-- Fila 2: cantidad, lote, gramos por tarro (solo CROMO/SILICIO en ENTRADA) -->
         <div class="form-row-3">
           <div class="form-group">
-            <label>Cantidad</label>
+            <label id="movCantidadLabel">Cantidad de tarros</label>
             <input type="number" id="movCantidad" min="0" step="0.01" value="0" />
           </div>
           <div class="form-group">
             <label>Lote (opcional)</label>
             <input type="text" id="movLote" placeholder="Ej: L-2026-001" />
           </div>
+          <div class="form-group" id="gramosPorTarroGroup" style="display:none;">
+            <label>Gramos por tarro
+              <span style="font-weight:normal; color:var(--text-muted); font-size:0.78rem;">(contenido de cada tarro)</span>
+            </label>
+            <input type="number" id="movGramosPorTarro" min="0" step="0.01" value="0" placeholder="Ej: 100" />
+          </div>
+        </div>
+
+        <!-- Fila 3: costos y proveedor (solo en ENTRADA) -->
+        <div class="form-row-3" id="movCostosRow">
           <div class="form-group">
             <label>Costo total del lote
               <span style="font-weight:normal; color:var(--text-muted); font-size:0.78rem;">(solo en entradas)</span>
             </label>
             <input type="number" id="movCosto" min="0" step="0.01" value="0" placeholder="$" />
           </div>
-        </div>
-        <div class="form-row-3">
           <div class="form-group">
             <label>Proveedor (opcional)</label>
             <input type="text" id="movProveedor" placeholder="Nombre del proveedor" />
@@ -1357,12 +1387,30 @@
             <label>N° Factura (opcional)</label>
             <input type="text" id="movFactura" placeholder="FAC-001" />
           </div>
-          <div class="form-group">
-            <label>Observaciones</label>
-            <input type="text" id="movObs" placeholder="Notas..." />
-          </div>
         </div>
+
+        <!-- Fila 4: para INICIO_USO se selecciona qué lote abrir -->
+        <div class="form-group" id="movLoteSelectorGroup" style="display:none;">
+          <label>Selecciona el lote a abrir desde bodega</label>
+          <select id="movLoteSelector"></select>
+        </div>
+
+        <div class="form-group">
+          <label>Observaciones</label>
+          <input type="text" id="movObs" placeholder="Notas..." />
+        </div>
+
         <button class="btn btn-success" onclick="saveMovimiento()">✓ Registrar movimiento</button>
+
+        <div class="alert alert-info" style="margin-top:14px;">
+          <span>💡</span>
+          <span>
+            <strong>Flujo:</strong> 1) <em>Entrada</em> al recibir compra (va a bodega) →
+            2) <em>Abrir y empezar a usar</em> cuando se inicie el consumo de un lote →
+            3) <em>Consumo</em> automático por ciclos o manual para Cromo/Silicio →
+            4) <em>Agotado</em> cuando se termina.
+          </span>
+        </div>
       </div>
 
       <div class="card">
@@ -1687,6 +1735,61 @@
 
         <button class="btn btn-success" onclick="createNewUser()" style="margin-top:16px;">✨ Crear usuario</button>
       </div>
+
+      <div class="card">
+        <h3>📦 Inventario inicial (sin costo)</h3>
+        <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:14px;">
+          Si tienes insumos ya en uso o en bodega antes de empezar a usar el sistema, regístralos aquí.
+          No afecta los costos ni la rentabilidad — solo crea el inventario base.
+        </p>
+
+        <div class="form-row-3">
+          <div class="form-group">
+            <label>Insumo</label>
+            <select id="invInicialInsumo" onchange="onInvInicialInsumoChange()">
+              <option value="HIDROFOBICO">💊 Hidrofóbico (pastillas)</option>
+              <option value="ZIRCONIO">⚪ Zirconio (pastillas)</option>
+              <option value="CUARZO">💎 Cuarzo (unidades)</option>
+              <option value="FILAMENTO">🧵 Filamento (unidades)</option>
+              <option value="CROMO">⚙️ Cromo (gramos)</option>
+              <option value="SILICIO">🧴 Silicio (gramos)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Estado</label>
+            <select id="invInicialEstado">
+              <option value="BODEGA">📦 En bodega (sin abrir)</option>
+              <option value="EN_USO">▶️ Ya está en uso</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label id="invInicialCantLabel">Cantidad</label>
+            <input type="number" id="invInicialCantidad" min="0" step="0.01" value="0" />
+          </div>
+        </div>
+
+        <div class="form-group" id="invInicialGramosGroup" style="display:none;">
+          <label>Gramos en este lote
+            <span style="font-weight:normal; color:var(--text-muted); font-size:0.78rem;">(cuánto contiene este tarro)</span>
+          </label>
+          <input type="number" id="invInicialGramos" min="0" step="0.01" value="0" />
+        </div>
+
+        <div class="form-group">
+          <label>Etiqueta del lote (opcional)</label>
+          <input type="text" id="invInicialLote" placeholder="Ej: Lote inicial 1" />
+        </div>
+
+        <button class="btn btn-warning" onclick="registrarInventarioInicial()">📦 Registrar inventario inicial</button>
+
+        <div class="alert alert-info" style="margin-top:14px;">
+          <span>ℹ️</span>
+          <span>
+            <strong>Ejemplo:</strong> Si tienes un tarro de Cromo abierto con 60g restantes,
+            elige Cromo, estado "Ya está en uso", cantidad 1 (tarro), gramos 60.
+          </span>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -1872,13 +1975,19 @@ function dataToRows(type) {
       rows.push([formatDateDisplay(t.fecha), t.operaria, t.horaInicio, t.horaFin, t.horas, t.ciclosAsignados, t.observaciones || '']);
     });
   } else if (type === 'movimientos') {
-    const stockMap = {};
     [...state.movimientos].sort((a,b) => a.fecha.localeCompare(b.fecha) || a.id.localeCompare(b.id)).forEach(m => {
-      if (!stockMap[m.insumo]) stockMap[m.insumo] = 0;
-      if (m.tipo === 'ENTRADA') stockMap[m.insumo] += m.cantidad;
-      else if (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') stockMap[m.insumo] -= m.cantidad;
-      else if (m.tipo === 'AGOTADO' || m.tipo === 'REEMPLAZO') stockMap[m.insumo] = 0;
-      const def = INSUMOS_DEF[m.insumo] || { unidad: '' };
+      const def = INSUMOS_DEF[m.insumo] || { unidad: '', granular: false };
+      // Stock total al momento (recalculado correctamente)
+      const stockActual = calcularStockPorInsumo(m.insumo);
+      // Meta info embebida (para reconstruir al hacer pull)
+      const meta = {
+        gpt: m.gramosPorTarro || 0,
+        lref: m.loteRefId || '',
+        cref: m.cicloRefId || '',
+        crot: m.cicloRoturaRef || 0,
+      };
+      const obsBase = m.observaciones || '';
+      const obsCompleta = obsBase + ' [META:' + JSON.stringify(meta) + ']';
       rows.push([
         formatDateDisplay(m.fecha),
         m.insumo,
@@ -1890,8 +1999,8 @@ function dataToRows(type) {
         m.costoUnitario || 0,
         m.proveedor || '',
         m.factura || '',
-        Math.max(0, stockMap[m.insumo]).toFixed(2),
-        m.observaciones || ''
+        stockActual.toFixed(2),
+        obsCompleta
       ]);
     });
   }
@@ -2340,12 +2449,24 @@ function parseDataIntoState(data) {
     });
   });
   state.movimientos = [];
-  (data.movimientos || []).forEach(r => {
+  // Mapa para resolver loteRefId basado en datos identificativos del Sheet
+  // Primera pasada: crear todos los movimientos
+  const tempMovs = [];
+  (data.movimientos || []).forEach((r, idx) => {
     if (!r[0]) return;
     const fecha = parseFechaExcel(r[0]);
     if (!fecha) return;
-    state.movimientos.push({
-      id: generateId(), fecha,
+    let observaciones = String(r[11] || '');
+    let meta = { gpt: 0, lref: '', cref: '', crot: 0 };
+    const metaMatch = observaciones.match(/\[META:(\{.*?\})\]/);
+    if (metaMatch) {
+      try { meta = JSON.parse(metaMatch[1]); } catch(e) {}
+      observaciones = observaciones.replace(/\s*\[META:.*?\]/, '').trim();
+    }
+    tempMovs.push({
+      id: generateId(),
+      _origIdx: idx,
+      fecha,
       insumo: String(r[1] || '').toUpperCase(),
       tipo: String(r[2] || '').toUpperCase(),
       cantidad: parseFloat(r[3]) || 0,
@@ -2354,9 +2475,32 @@ function parseDataIntoState(data) {
       costoUnitario: parseFloat(r[7]) || 0,
       proveedor: String(r[8] || ''),
       factura: String(r[9] || ''),
-      observaciones: String(r[11] || ''),
+      observaciones,
+      gramosPorTarro: meta.gpt || 0,
+      _origLref: meta.lref || '',
+      cicloRefId: meta.cref || '',
+      cicloRoturaRef: meta.crot || 0,
     });
   });
+
+  // Segunda pasada: resolver loteRefId
+  // Buscar la entrada (insumo, lote) más cercana en fecha anterior o igual
+  tempMovs.forEach(m => {
+    m.loteRefId = '';
+    if (m.tipo !== 'ENTRADA' && m._origLref) {
+      // Encontrar la ENTRADA del mismo insumo cuyo lote coincida con _origLref
+      // En el Sheet original el lref era un ID viejo; si no encontramos coincidencia exacta,
+      // tomamos la entrada más reciente anterior del mismo insumo
+      const candidatas = tempMovs.filter(c =>
+        c.tipo === 'ENTRADA' && c.insumo === m.insumo && c.fecha <= m.fecha
+      ).sort((a,b) => b.fecha.localeCompare(a.fecha));
+      if (candidatas.length > 0) m.loteRefId = candidatas[0].id;
+    }
+    delete m._origIdx;
+    delete m._origLref;
+  });
+
+  state.movimientos = tempMovs;
 }
 
 function saveStateLocal() {
@@ -2388,17 +2532,23 @@ function applyUserPermissions() {
     }
   });
 
-  // Mostrar/ocultar columnas de costos en tablas
+  // Mostrar/ocultar columnas de costos
   if (perms.costos) {
     document.body.classList.remove('hide-costos');
   } else {
     document.body.classList.add('hide-costos');
   }
 
-  // Si la página actual no es accesible, ir al dashboard
+  // Operario: ocultar botones de eliminar
+  if (currentUser.rol === 'admin') {
+    document.body.classList.remove('hide-delete');
+  } else {
+    document.body.classList.add('hide-delete');
+  }
+
+  // Si la página actual no es accesible, ir a primera disponible
   const activeNav = document.querySelector('.nav-item.active');
   if (activeNav && activeNav.dataset.perm && !perms[activeNav.dataset.perm]) {
-    // Encontrar la primera página accesible
     const firstAvail = document.querySelector('.nav-item[data-perm]:not([style*="none"])');
     if (firstAvail) firstAvail.click();
   }
@@ -2659,9 +2809,77 @@ function deleteUserConfirm(userId) {
   );
 }
 
-// ================================================================
-// MÓDULO COSTOS
-// ================================================================
+// === Inventario inicial ===
+function onInvInicialInsumoChange() {
+  const insumo = document.getElementById('invInicialInsumo').value;
+  const def = INSUMOS_DEF[insumo];
+  document.getElementById('invInicialGramosGroup').style.display = def.granular ? 'block' : 'none';
+  document.getElementById('invInicialCantLabel').textContent =
+    def.granular ? 'Cantidad de tarros' : `Cantidad de ${def.unidad}`;
+}
+
+function registrarInventarioInicial() {
+  if (!ensureAdmin('registrar inventario inicial')) return;
+  const insumo = document.getElementById('invInicialInsumo').value;
+  const estado = document.getElementById('invInicialEstado').value;
+  const cantidad = parseFloat(document.getElementById('invInicialCantidad').value) || 0;
+  const gramos = parseFloat(document.getElementById('invInicialGramos').value) || 0;
+  const lote = document.getElementById('invInicialLote').value || `Inicial ${new Date().toISOString().substring(0,10)}`;
+  const def = INSUMOS_DEF[insumo];
+
+  if (cantidad <= 0) { showToast('Cantidad debe ser > 0', 'warning'); return; }
+  if (def.granular && gramos <= 0) {
+    showToast('Indica los gramos del tarro', 'warning'); return;
+  }
+
+  const fecha = formatDateISO(new Date());
+
+  // Crear ENTRADA sin costo
+  const entradaId = generateId();
+  state.movimientos.push({
+    id: entradaId,
+    fecha,
+    insumo,
+    tipo: 'ENTRADA',
+    cantidad,
+    lote,
+    gramosPorTarro: def.granular ? gramos : 0,
+    costoLote: 0,
+    costoUnitario: 0,
+    proveedor: '',
+    factura: '',
+    observaciones: 'Inventario inicial (sin costo registrado)',
+  });
+
+  // Si está EN_USO, crear movimiento INICIO_USO también
+  if (estado === 'EN_USO') {
+    state.movimientos.push({
+      id: generateId(),
+      fecha,
+      insumo,
+      tipo: 'INICIO_USO',
+      cantidad,
+      loteRefId: entradaId,
+      lote: '',
+      gramosPorTarro: 0,
+      costoLote: 0,
+      costoUnitario: 0,
+      proveedor: '',
+      factura: '',
+      observaciones: 'Inventario inicial (ya estaba en uso)',
+    });
+  }
+
+  saveState();
+  refreshInsumos();
+  refreshDashboard();
+  showToast(`✓ Inventario inicial registrado: ${def.nombre}`);
+  document.getElementById('invInicialCantidad').value = 0;
+  document.getElementById('invInicialGramos').value = 0;
+  document.getElementById('invInicialLote').value = '';
+}
+
+
 let chartCostos = null;
 
 function refreshCostos() {
@@ -2799,14 +3017,16 @@ let selectedColorPend = 'VERDE';
 let chartProduccion = null;
 let chartColores = null;
 
-// Definición de insumos (unidades reales)
+// Definición de insumos
+// porCiclo: cantidad consumida por ciclo completo (medios = mitad)
+// granular: si true, se mide en una unidad interna distinta a tarros (gramos)
 const INSUMOS_DEF = {
-  HIDROFOBICO: { nombre: 'Hidrofóbico', unidad: 'pastillas', porCiclo: 1, icon: '💊' },
-  ZIRCONIO:    { nombre: 'Zirconio',    unidad: 'pastillas', porCiclo: 1, icon: '⚪' },
-  CUARZO:      { nombre: 'Cuarzo',      unidad: 'unidades',  porCiclo: 1, icon: '💎' },
-  FILAMENTO:   { nombre: 'Filamento',   unidad: 'unidades',  porCiclo: 0, icon: '🧵' },
-  CROMO:       { nombre: 'Cromo',       unidad: 'tarros',    porCiclo: 0, icon: '⚙️' },
-  SILICIO:     { nombre: 'Silicio',     unidad: 'tarros',    porCiclo: 0, icon: '🧴' },
+  HIDROFOBICO: { nombre: 'Hidrofóbico', unidad: 'pastillas', porCiclo: 1, icon: '💊', granular: false },
+  ZIRCONIO:    { nombre: 'Zirconio',    unidad: 'pastillas', porCiclo: 1, icon: '⚪', granular: false },
+  CUARZO:      { nombre: 'Cuarzo',      unidad: 'unidades',  porCiclo: 1, icon: '💎', granular: false },
+  FILAMENTO:   { nombre: 'Filamento',   unidad: 'unidades',  porCiclo: 0, icon: '🧵', granular: false },
+  CROMO:       { nombre: 'Cromo',       unidad: 'gramos',    porCiclo: 0, icon: '⚙️', granular: true,  contenedor: 'tarro' },
+  SILICIO:     { nombre: 'Silicio',     unidad: 'gramos',    porCiclo: 0, icon: '🧴', granular: true,  contenedor: 'tarro' },
 };
 
 // ================================================================
@@ -3052,33 +3272,131 @@ function saveRecord() {
 }
 
 function registrarConsumoAuto(rec) {
-  // Solo registramos consumo nuevo si no existía registro previo del mismo día/color
-  // Para evitar dobles descuentos al editar, recalculamos diferencial
-  const existing = state.movimientos.filter(m =>
-    m.fecha === rec.fecha && m.tipo === 'CONSUMO_AUTO' && m.cicloRefId === rec.id
-  );
-  // Eliminar consumos auto previos asociados a este registro
+  // Eliminar consumos auto previos asociados a este registro (para evitar dobles descuentos al editar)
   state.movimientos = state.movimientos.filter(m => !(m.tipo === 'CONSUMO_AUTO' && m.cicloRefId === rec.id));
 
-  const ciclosCompletos = rec.ciclos;
-  if (ciclosCompletos === 0) return;
+  // Cálculo total: ciclos completos = 1 unidad, medios ciclos = 0.5 unidades
+  const totalUnidades = (rec.ciclos || 0) + (rec.mediosCiclos || 0) * 0.5;
+  if (totalUnidades === 0) return;
 
   ['HIDROFOBICO','ZIRCONIO','CUARZO'].forEach(insumo => {
+    // Buscar el lote actualmente en uso para descontar de él
+    const enUso = obtenerLoteEnUso(insumo);
+    const loteRefId = enUso ? enUso.id : '';
+
+    const detalle = [];
+    if (rec.ciclos > 0) detalle.push(`${rec.ciclos} ciclo${rec.ciclos !== 1 ? 's' : ''}`);
+    if (rec.mediosCiclos > 0) detalle.push(`${rec.mediosCiclos} medio${rec.mediosCiclos !== 1 ? 's' : ''}`);
+
     state.movimientos.push({
       id: generateId(),
       fecha: rec.fecha,
       insumo,
       tipo: 'CONSUMO_AUTO',
-      cantidad: ciclosCompletos,
+      cantidad: totalUnidades,
       lote: '',
-      observaciones: `Consumo automático por ${ciclosCompletos} ciclos completos (${rec.color})`,
+      loteRefId,
+      observaciones: `${detalle.join(' + ')} (${rec.color}) → ${totalUnidades} ${INSUMOS_DEF[insumo].unidad}`,
       cicloRefId: rec.id,
       color: rec.color
     });
   });
 }
 
+// Helpers de permisos
+function isAdmin() {
+  return currentUser && currentUser.rol === 'admin';
+}
+
+function ensureAdmin(action) {
+  if (!isAdmin()) {
+    showToast(`Solo el administrador puede ${action}`, 'error');
+    return false;
+  }
+  return true;
+}
+
+// Reportar filamento roto: descuenta 1 filamento y deja nota en el ciclo
+function reportFilamentoRoto() {
+  const fecha = document.getElementById('dateInput').value;
+  const cicloNum = parseInt(document.getElementById('filamentoCicloNum').value) || 0;
+
+  if (!fecha) {
+    showToast('Selecciona una fecha primero', 'error');
+    return;
+  }
+  if (cicloNum <= 0) {
+    showToast('Ingresa el número de ciclo donde se rompió', 'warning');
+    return;
+  }
+
+  // Verificar que haya filamento en uso o disponible en bodega
+  const enUso = obtenerLoteEnUso('FILAMENTO');
+  const enBodega = obtenerLotesEnBodega('FILAMENTO');
+  const stockTotal = calcularStockPorInsumo('FILAMENTO');
+
+  if (stockTotal <= 0) {
+    showToast('⚠️ No hay filamento en inventario. Registra una entrada primero.', 'error');
+    return;
+  }
+
+  showModal('¿Reportar filamento roto?',
+    `<p>Se registrará que el filamento se rompió en el <strong>ciclo ${cicloNum}</strong> del día <strong>${formatDateDisplay(fecha)}</strong>.</p>
+     <p style="margin-top:8px;">Esto descontará automáticamente <strong>1 filamento</strong> del inventario.</p>
+     ${!enUso ? '<p style="margin-top:8px; color:var(--accent-amber);">⚠️ No hay filamento en uso. Se descontará uno de bodega automáticamente.</p>' : ''}`,
+    () => {
+      // Si no hay filamento en uso pero sí en bodega, abrir uno automáticamente
+      let loteRefId = enUso ? enUso.id : '';
+      if (!enUso && enBodega.length > 0) {
+        const primero = enBodega[0];
+        // Crear movimiento INICIO_USO automático
+        state.movimientos.push({
+          id: generateId(),
+          fecha,
+          insumo: 'FILAMENTO',
+          tipo: 'INICIO_USO',
+          cantidad: 1,
+          loteRefId: primero.id,
+          lote: '',
+          observaciones: `Apertura automática por reporte de filamento roto`,
+          costoLote: 0,
+          costoUnitario: 0,
+          gramosPorTarro: 0,
+          proveedor: '',
+          factura: '',
+        });
+        loteRefId = primero.id;
+      }
+
+      // Registrar el reemplazo (descuenta 1)
+      state.movimientos.push({
+        id: generateId(),
+        fecha,
+        insumo: 'FILAMENTO',
+        tipo: 'REEMPLAZO',
+        cantidad: 1,
+        loteRefId,
+        lote: '',
+        observaciones: `Filamento roto en ciclo ${cicloNum} (reportado por ${currentUser ? currentUser.nombre : 'usuario'})`,
+        costoLote: 0,
+        costoUnitario: 0,
+        gramosPorTarro: 0,
+        proveedor: '',
+        factura: '',
+        cicloRoturaRef: cicloNum,
+      });
+
+      saveState();
+      refreshInsumos();
+      document.getElementById('filamentoCicloNum').value = '';
+      showToast(`✓ Filamento descontado · Ciclo ${cicloNum}`);
+    },
+    'Sí, reportar'
+  );
+}
+
 function deleteRecord(id) {
+  if (!ensureAdmin('eliminar registros de ciclos')) return;
   showModal('¿Eliminar registro?',
     '<p>Esta acción eliminará el registro y revertirá el consumo automático asociado.</p>',
     () => {
@@ -3167,6 +3485,7 @@ function renderPendientes() {
 }
 
 function deletePendiente(id) {
+  if (!ensureAdmin('eliminar pendientes')) return;
   showModal('¿Eliminar pendiente?', '<p>Se eliminará este registro de pendientes.</p>', () => {
     state.pendientes = state.pendientes.filter(p => p.id !== id);
     saveState();
@@ -3348,6 +3667,7 @@ function renderTurnos(filterFecha = null) {
 }
 
 function deleteTurno(id) {
+  if (!ensureAdmin('eliminar turnos')) return;
   state.turnos = state.turnos.filter(t => t.id !== id);
   saveState();
   renderTurnos();
@@ -3357,17 +3677,164 @@ function deleteTurno(id) {
 // ================================================================
 // MÓDULO 4: INSUMOS
 // ================================================================
+// ================================================================
+// LÓGICA DE INVENTARIO: BODEGA + EN USO
+// ================================================================
+// Nuevo modelo de movimientos:
+// - ENTRADA: el lote/tarro entra a BODEGA (no se está usando todavía)
+// - INICIO_USO: un lote pasa de BODEGA a EN USO
+// - CONSUMO / CONSUMO_AUTO: descuenta del lote EN USO
+// - AGOTADO: el lote en uso se acabó (queda en 0)
+// Cada movimiento puede llevar referencia al lote (m.loteRefId) que está afectando
+
+// Calcula el stock total (bodega + en uso) en la unidad base del insumo
 function calcularStockPorInsumo(insumo) {
-  // Sumamos entradas, restamos consumos y agotados
-  const movs = state.movimientos.filter(m => m.insumo === insumo);
+  const def = INSUMOS_DEF[insumo];
+  if (!def) return 0;
+
+  // Para insumos granulares (CROMO, SILICIO): contamos GRAMOS totales
+  // Stock = sum(entradas: cantidad_tarros * gramos_por_tarro) - sum(consumos en gramos)
+  // Más complejo: cada lote tiene su propio contenido de gramos
+  if (def.granular) {
+    let totalGramos = 0;
+    // Sumar gramos disponibles por lote
+    const lotes = obtenerLotesPorInsumo(insumo);
+    lotes.forEach(l => {
+      totalGramos += l.gramosDisponibles;
+    });
+    return totalGramos;
+  }
+
+  // Insumos no granulares: contamos unidades
   let stock = 0;
-  movs.forEach(m => {
+  state.movimientos.filter(m => m.insumo === insumo).forEach(m => {
     if (m.tipo === 'ENTRADA') stock += m.cantidad;
     else if (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') stock -= m.cantidad;
-    else if (m.tipo === 'AGOTADO') stock = 0;
-    else if (m.tipo === 'REEMPLAZO') stock = 0; // filamento se rompe = se reemplaza
+    else if (m.tipo === 'AGOTADO') {
+      // AGOTADO marca el final de un lote: el remanente que falta se descuenta
+      stock -= (m.cantidad || 0);
+    }
+    else if (m.tipo === 'REEMPLAZO') stock -= 1; // 1 filamento se rompió
   });
   return Math.max(0, stock);
+}
+
+// Stock solo en BODEGA (lotes que aún no se han abierto)
+function calcularStockBodega(insumo) {
+  const def = INSUMOS_DEF[insumo];
+  if (!def) return 0;
+  if (def.granular) {
+    // Sumar tarros que están en BODEGA (estado === 'BODEGA')
+    const lotes = obtenerLotesPorInsumo(insumo);
+    let totalGramos = 0;
+    lotes.forEach(l => {
+      if (l.estado === 'BODEGA') totalGramos += l.gramosOriginales;
+    });
+    return totalGramos;
+  }
+  // Para no granulares: bodega = entradas - (lo que ya pasó a uso)
+  let bodega = 0;
+  state.movimientos.filter(m => m.insumo === insumo).forEach(m => {
+    if (m.tipo === 'ENTRADA') bodega += m.cantidad;
+    else if (m.tipo === 'INICIO_USO') bodega -= m.cantidad;
+  });
+  return Math.max(0, bodega);
+}
+
+// Stock EN USO actualmente
+function calcularStockEnUso(insumo) {
+  const def = INSUMOS_DEF[insumo];
+  if (!def) return 0;
+  if (def.granular) {
+    const lotes = obtenerLotesPorInsumo(insumo);
+    let totalGramos = 0;
+    lotes.forEach(l => {
+      if (l.estado === 'EN_USO') totalGramos += l.gramosDisponibles;
+    });
+    return totalGramos;
+  }
+  // No granulares: en uso = lo que se inició menos consumos y agotados
+  let enUso = 0;
+  state.movimientos.filter(m => m.insumo === insumo).forEach(m => {
+    if (m.tipo === 'INICIO_USO') enUso += m.cantidad;
+    else if (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') enUso -= m.cantidad;
+    else if (m.tipo === 'AGOTADO') enUso -= (m.cantidad || 0);
+    else if (m.tipo === 'REEMPLAZO') enUso -= 1;
+  });
+  return Math.max(0, enUso);
+}
+
+// Obtiene la lista de lotes (entradas) con su estado actual
+// Retorna: [{ id, fecha, lote, gramosOriginales, gramosDisponibles, estado }]
+function obtenerLotesPorInsumo(insumo) {
+  const def = INSUMOS_DEF[insumo];
+  if (!def) return [];
+
+  // Tomar todas las ENTRADAS ordenadas cronológicamente (FIFO)
+  const entradas = state.movimientos
+    .filter(m => m.insumo === insumo && m.tipo === 'ENTRADA')
+    .sort((a,b) => a.fecha.localeCompare(b.fecha) || a.id.localeCompare(b.id));
+
+  return entradas.map(entrada => {
+    const tarros = entrada.cantidad;
+    const gramosPorTarro = entrada.gramosPorTarro || 0;
+    const gramosOriginales = def.granular ? (tarros * gramosPorTarro) : tarros;
+
+    // ¿Se inició uso?
+    const inicioUso = state.movimientos.find(m =>
+      m.insumo === insumo && m.tipo === 'INICIO_USO' && m.loteRefId === entrada.id
+    );
+
+    // ¿Se agotó?
+    const agotado = state.movimientos.find(m =>
+      m.insumo === insumo && m.tipo === 'AGOTADO' && m.loteRefId === entrada.id
+    );
+
+    let estado = 'BODEGA';
+    if (agotado) estado = 'AGOTADO';
+    else if (inicioUso) estado = 'EN_USO';
+
+    // Gramos disponibles del lote en uso = original - consumido del mismo lote
+    let gramosDisponibles = gramosOriginales;
+    if (estado === 'EN_USO') {
+      const consumos = state.movimientos.filter(m =>
+        m.insumo === insumo &&
+        (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') &&
+        m.loteRefId === entrada.id
+      );
+      const totalConsumido = consumos.reduce((s,c) => s + (c.cantidad || 0), 0);
+      gramosDisponibles = Math.max(0, gramosOriginales - totalConsumido);
+    } else if (estado === 'AGOTADO') {
+      gramosDisponibles = 0;
+    }
+
+    return {
+      id: entrada.id,
+      fecha: entrada.fecha,
+      lote: entrada.lote || '—',
+      proveedor: entrada.proveedor || '',
+      gramosPorTarro,
+      tarros,
+      gramosOriginales,
+      gramosDisponibles,
+      estado,
+      costoLote: entrada.costoLote || 0,
+      costoUnitario: entrada.costoUnitario || 0,
+      _entrada: entrada,
+    };
+  });
+}
+
+// Encuentra el lote actualmente EN USO (puede haber 1 o ninguno)
+function obtenerLoteEnUso(insumo) {
+  const lotes = obtenerLotesPorInsumo(insumo);
+  return lotes.find(l => l.estado === 'EN_USO') || null;
+}
+
+// Obtiene los lotes que están en BODEGA (disponibles para abrir)
+function obtenerLotesEnBodega(insumo) {
+  const lotes = obtenerLotesPorInsumo(insumo);
+  return lotes.filter(l => l.estado === 'BODEGA');
 }
 
 function calcularConsumoPromedioDiario(insumo) {
@@ -3389,7 +3856,7 @@ function calcularDiasRestantes(insumo) {
 }
 
 function calcularRendimientoPromedio(insumo) {
-  // Para Cromo y Silicio: gramos/envases por ciclo según color
+  // Para Cromo y Silicio: gramos por ciclo según color
   if (insumo === 'CROMO' || insumo === 'SILICIO') {
     const consumos = state.movimientos.filter(m =>
       m.insumo === insumo && m.tipo === 'CONSUMO'
@@ -3420,16 +3887,85 @@ function calcularRendimientoPromedio(insumo) {
 }
 
 function obtenerLoteActivo(insumo) {
-  // El último lote ingresado que aún no se haya agotado
-  const movs = state.movimientos
-    .filter(m => m.insumo === insumo)
-    .sort((a,b) => b.fecha.localeCompare(a.fecha) || b.id.localeCompare(a.id));
+  // Compatibilidad: retorna el lote en uso si existe
+  const enUso = obtenerLoteEnUso(insumo);
+  return enUso ? enUso.lote : null;
+}
 
-  for (const m of movs) {
-    if (m.tipo === 'ENTRADA' && m.lote) return m.lote;
-    if (m.tipo === 'AGOTADO') break;
+// Cambio dinámico de UI según insumo y tipo seleccionado
+function onInsumoChange() {
+  const insumo = document.getElementById('movInsumo').value;
+  const def = INSUMOS_DEF[insumo];
+  const tipo = document.getElementById('movTipo').value;
+
+  // Mostrar/ocultar campo "gramos por tarro" solo si granular y tipo ENTRADA
+  document.getElementById('gramosPorTarroGroup').style.display =
+    (def.granular && tipo === 'ENTRADA') ? 'block' : 'none';
+
+  // Etiqueta de cantidad
+  const lbl = document.getElementById('movCantidadLabel');
+  if (tipo === 'CONSUMO') {
+    lbl.textContent = def.granular ? 'Cantidad consumida (gramos)' : 'Cantidad consumida';
+  } else if (tipo === 'INICIO_USO') {
+    lbl.textContent = 'Tarros/lotes a abrir';
+  } else if (tipo === 'AGOTADO') {
+    lbl.textContent = 'Cantidad restante (se descarta)';
+  } else {
+    // ENTRADA
+    lbl.textContent = def.granular ? 'Cantidad de tarros' : `Cantidad de ${def.unidad}`;
   }
-  return null;
+
+  // Actualizar selector de lotes para INICIO_USO
+  if (tipo === 'INICIO_USO' || tipo === 'CONSUMO' || tipo === 'AGOTADO') {
+    populateLoteSelector(insumo, tipo);
+  }
+}
+
+function onTipoChange() {
+  const tipo = document.getElementById('movTipo').value;
+  const insumo = document.getElementById('movInsumo').value;
+  const def = INSUMOS_DEF[insumo];
+
+  // Mostrar/ocultar costos (solo en ENTRADA)
+  document.getElementById('movCostosRow').style.display = (tipo === 'ENTRADA') ? '' : 'none';
+
+  // Mostrar/ocultar gramos por tarro
+  document.getElementById('gramosPorTarroGroup').style.display =
+    (def.granular && tipo === 'ENTRADA') ? 'block' : 'none';
+
+  // Selector de lotes
+  document.getElementById('movLoteSelectorGroup').style.display =
+    (tipo === 'INICIO_USO' || tipo === 'CONSUMO' || tipo === 'AGOTADO') ? 'block' : 'none';
+
+  // Actualizar etiqueta
+  onInsumoChange();
+}
+
+function populateLoteSelector(insumo, tipo) {
+  const sel = document.getElementById('movLoteSelector');
+  sel.innerHTML = '';
+
+  if (tipo === 'INICIO_USO') {
+    // Mostrar lotes en BODEGA
+    const lotes = obtenerLotesEnBodega(insumo);
+    if (lotes.length === 0) {
+      sel.innerHTML = '<option value="">— No hay lotes en bodega —</option>';
+      return;
+    }
+    lotes.forEach(l => {
+      const txt = `${l.lote} | ${formatDateDisplay(l.fecha)} | ${l.gramosOriginales > 0 ? l.gramosOriginales + 'g' : l.tarros + ' uds'}`;
+      sel.innerHTML += `<option value="${l.id}">${txt}</option>`;
+    });
+  } else if (tipo === 'CONSUMO' || tipo === 'AGOTADO') {
+    // Solo mostrar el lote EN USO
+    const enUso = obtenerLoteEnUso(insumo);
+    if (!enUso) {
+      sel.innerHTML = '<option value="">— Sin lote en uso. Abre uno primero —</option>';
+      return;
+    }
+    const restante = INSUMOS_DEF[insumo].granular ? enUso.gramosDisponibles + 'g' : enUso.gramosDisponibles + ' uds';
+    sel.innerHTML += `<option value="${enUso.id}">${enUso.lote} (en uso, restante: ${restante})</option>`;
+  }
 }
 
 function saveMovimiento() {
@@ -3438,23 +3974,65 @@ function saveMovimiento() {
   const tipo = document.getElementById('movTipo').value;
   const cantidad = parseFloat(document.getElementById('movCantidad').value) || 0;
   const lote = document.getElementById('movLote').value;
+  const gramosPorTarro = parseFloat(document.getElementById('movGramosPorTarro').value) || 0;
   const costoLote = parseFloat(document.getElementById('movCosto').value) || 0;
   const proveedor = document.getElementById('movProveedor').value;
   const factura = document.getElementById('movFactura').value;
   const obs = document.getElementById('movObs').value;
+  const loteRefId = document.getElementById('movLoteSelector').value || '';
+
+  const def = INSUMOS_DEF[insumo];
 
   if (!fecha) { showToast('Selecciona una fecha','error'); return; }
-  if (cantidad <= 0 && tipo !== 'AGOTADO' && tipo !== 'REEMPLAZO') {
-    showToast('Cantidad debe ser mayor a 0', 'warning'); return;
+
+  // Validaciones específicas
+  if (tipo === 'ENTRADA') {
+    if (cantidad <= 0) { showToast('La cantidad debe ser mayor a 0', 'warning'); return; }
+    if (def.granular && gramosPorTarro <= 0) {
+      showToast('Indica los gramos por tarro', 'warning'); return;
+    }
+  } else if (tipo === 'INICIO_USO') {
+    if (!loteRefId) { showToast('Selecciona el lote a abrir', 'error'); return; }
+  } else if (tipo === 'CONSUMO') {
+    if (cantidad <= 0) { showToast('Cantidad debe ser mayor a 0', 'warning'); return; }
+    if (!loteRefId) { showToast('No hay lote en uso. Abre uno primero', 'error'); return; }
+  } else if (tipo === 'AGOTADO') {
+    if (!loteRefId) { showToast('No hay lote en uso para marcar agotado', 'error'); return; }
   }
 
-  // Costo unitario (lote / cantidad), solo para entradas
-  const costoUnitario = (tipo === 'ENTRADA' && cantidad > 0)
-    ? (costoLote / cantidad) : 0;
+  // Calcular costo unitario en términos de la unidad base
+  let costoUnitario = 0;
+  if (tipo === 'ENTRADA' && costoLote > 0) {
+    if (def.granular) {
+      // Costo por gramo
+      costoUnitario = costoLote / (cantidad * gramosPorTarro);
+    } else {
+      costoUnitario = costoLote / cantidad;
+    }
+  }
+
+  // Para INICIO_USO, la cantidad la tomamos del lote referenciado
+  let cantidadEfectiva = cantidad;
+  if (tipo === 'INICIO_USO') {
+    const lotes = obtenerLotesPorInsumo(insumo);
+    const lref = lotes.find(l => l.id === loteRefId);
+    if (lref) cantidadEfectiva = def.granular ? lref.gramosOriginales : lref.tarros;
+  }
+
+  // Para AGOTADO sin cantidad explícita, tomar lo que queda del lote
+  if (tipo === 'AGOTADO' && cantidad === 0) {
+    const lotes = obtenerLotesPorInsumo(insumo);
+    const lref = lotes.find(l => l.id === loteRefId);
+    if (lref) cantidadEfectiva = lref.gramosDisponibles;
+  }
 
   state.movimientos.push({
     id: generateId(),
-    fecha, insumo, tipo, cantidad, lote,
+    fecha, insumo, tipo,
+    cantidad: cantidadEfectiva,
+    lote,
+    gramosPorTarro: tipo === 'ENTRADA' ? gramosPorTarro : 0,
+    loteRefId: tipo !== 'ENTRADA' ? loteRefId : '',
     costoLote: tipo === 'ENTRADA' ? costoLote : 0,
     costoUnitario: tipo === 'ENTRADA' ? costoUnitario : 0,
     proveedor: tipo === 'ENTRADA' ? proveedor : '',
@@ -3465,8 +4043,10 @@ function saveMovimiento() {
   saveState();
   refreshInsumos();
   showToast('Movimiento registrado');
+  // Limpiar form
   document.getElementById('movCantidad').value = 0;
   document.getElementById('movLote').value = '';
+  document.getElementById('movGramosPorTarro').value = 0;
   document.getElementById('movCosto').value = 0;
   document.getElementById('movProveedor').value = '';
   document.getElementById('movFactura').value = '';
@@ -3474,6 +4054,7 @@ function saveMovimiento() {
 }
 
 function deleteMovimiento(id) {
+  if (!ensureAdmin('eliminar movimientos de inventario')) return;
   state.movimientos = state.movimientos.filter(m => m.id !== id);
   saveState();
   refreshInsumos();
@@ -3492,22 +4073,31 @@ function renderInsumosCards() {
   let html = '';
   Object.keys(INSUMOS_DEF).forEach(key => {
     const def = INSUMOS_DEF[key];
-    const stock = calcularStockPorInsumo(key);
+    const stockTotal = calcularStockPorInsumo(key);
+    const stockBodega = calcularStockBodega(key);
+    const stockEnUso = calcularStockEnUso(key);
     const consumoProm = calcularConsumoPromedioDiario(key);
     const diasRest = calcularDiasRestantes(key);
-    const lote = obtenerLoteActivo(key);
+    const enUso = obtenerLoteEnUso(key);
 
-    // Calcular % de stock vs entrada inicial del lote
+    // Calcular % de stock total vs lo último ingresado
     const ultimaEntrada = state.movimientos
       .filter(m => m.insumo === key && m.tipo === 'ENTRADA')
       .sort((a,b) => b.fecha.localeCompare(a.fecha))[0];
-    const stockInicial = ultimaEntrada ? ultimaEntrada.cantidad : stock;
-    const porc = stockInicial > 0 ? (stock / stockInicial) * 100 : 0;
+    let stockInicial = stockTotal;
+    if (ultimaEntrada) {
+      stockInicial = def.granular
+        ? (ultimaEntrada.cantidad * (ultimaEntrada.gramosPorTarro || 1))
+        : ultimaEntrada.cantidad;
+    }
+    const porc = stockInicial > 0 ? (stockTotal / stockInicial) * 100 : 0;
 
-    // Determinar nivel de alerta
     let alertColor = 'var(--accent-verde)';
     let alertBadge = '';
-    if (porc < 20 || (diasRest !== Infinity && diasRest < 7)) {
+    if (stockTotal === 0) {
+      alertColor = 'var(--accent-red)';
+      alertBadge = '<span class="badge badge-red">⛔ SIN STOCK</span>';
+    } else if (porc < 20 || (diasRest !== Infinity && diasRest < 7)) {
       alertColor = 'var(--accent-red)';
       alertBadge = '<span class="badge badge-red">⚠️ ALERTA</span>';
     } else if (porc < 35 || (diasRest !== Infinity && diasRest < 14)) {
@@ -3515,22 +4105,32 @@ function renderInsumosCards() {
       alertBadge = '<span class="badge badge-amber">⚠ Bajo</span>';
     }
 
+    const fmt = (n) => def.granular ? n.toFixed(1) : (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2));
+
     html += `<div class="insumo-card" style="border-left:3px solid ${alertColor};">
       <h4>
         <span>${def.icon} ${def.nombre}</span>
         ${alertBadge}
       </h4>
       <div class="insumo-stat">
-        <span class="insumo-stat-label">Stock actual</span>
-        <span class="insumo-stat-value">${stock.toFixed(stock % 1 === 0 ? 0 : 2)} ${def.unidad}</span>
+        <span class="insumo-stat-label">Total disponible</span>
+        <span class="insumo-stat-value"><strong>${fmt(stockTotal)} ${def.unidad}</strong></span>
+      </div>
+      <div class="insumo-stat" style="background:rgba(59,130,246,0.08); margin:6px -8px; padding:6px 8px; border-radius:4px;">
+        <span class="insumo-stat-label">📦 En bodega</span>
+        <span class="insumo-stat-value">${fmt(stockBodega)} ${def.unidad}</span>
+      </div>
+      <div class="insumo-stat" style="background:rgba(16,185,129,0.08); margin:6px -8px; padding:6px 8px; border-radius:4px;">
+        <span class="insumo-stat-label">▶️ En uso</span>
+        <span class="insumo-stat-value">${fmt(stockEnUso)} ${def.unidad}</span>
       </div>
       <div class="insumo-stat">
-        <span class="insumo-stat-label">Lote activo</span>
-        <span class="insumo-stat-value">${lote || '—'}</span>
+        <span class="insumo-stat-label">Lote en uso</span>
+        <span class="insumo-stat-value" style="font-size:0.82rem;">${enUso ? enUso.lote : '—'}</span>
       </div>
       <div class="insumo-stat">
-        <span class="insumo-stat-label">Consumo promedio/día</span>
-        <span class="insumo-stat-value">${consumoProm.toFixed(2)} ${def.unidad}</span>
+        <span class="insumo-stat-label">Consumo prom./día</span>
+        <span class="insumo-stat-value">${fmt(consumoProm)} ${def.unidad}</span>
       </div>
       <div class="insumo-stat">
         <span class="insumo-stat-label">Días restantes</span>
@@ -4220,6 +4820,10 @@ renderPendientes();
 renderTurnos();
 refreshInsumos();
 refreshDashboard();
+
+// Inicializar formularios dinámicos (movimientos e inventario inicial)
+onTipoChange();
+onInvInicialInsumoChange();
 
 // Permitir Enter en login
 document.getElementById('loginPassword').addEventListener('keypress', (e) => {
