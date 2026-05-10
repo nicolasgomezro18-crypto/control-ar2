@@ -2409,6 +2409,7 @@ async function pullAllSilent() {
 }
 
 function parseDataIntoState(data) {
+  // 1) Parsear ciclos
   state.ciclos = [];
   (data.ciclos || []).forEach(r => {
     if (!r[0]) return;
@@ -2424,6 +2425,8 @@ function parseDataIntoState(data) {
       state.ciclos.push({ id: generateId(), fecha, ciclos, mediosCiclos: medios, color });
     }
   });
+
+  // 2) Pendientes
   state.pendientes = [];
   (data.pendientes || []).forEach(r => {
     if (!r[0]) return;
@@ -2436,6 +2439,8 @@ function parseDataIntoState(data) {
       color: String(r[4] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE',
     });
   });
+
+  // 3) Turnos
   state.turnos = [];
   (data.turnos || []).forEach(r => {
     if (!r[0]) return;
@@ -2448,9 +2453,9 @@ function parseDataIntoState(data) {
       ciclosAsignados: String(r[5] || ''), observaciones: String(r[6] || ''),
     });
   });
+
+  // 4) Movimientos
   state.movimientos = [];
-  // Mapa para resolver loteRefId basado en datos identificativos del Sheet
-  // Primera pasada: crear todos los movimientos
   const tempMovs = [];
   (data.movimientos || []).forEach((r, idx) => {
     if (!r[0]) return;
@@ -2478,26 +2483,43 @@ function parseDataIntoState(data) {
       observaciones,
       gramosPorTarro: meta.gpt || 0,
       _origLref: meta.lref || '',
-      cicloRefId: meta.cref || '',
+      _origCref: meta.cref || '',
       cicloRoturaRef: meta.crot || 0,
     });
   });
 
-  // Segunda pasada: resolver loteRefId
-  // Buscar la entrada (insumo, lote) más cercana en fecha anterior o igual
+  // 5) Resolver loteRefId: buscar ENTRADA del mismo insumo, fecha <=
   tempMovs.forEach(m => {
     m.loteRefId = '';
     if (m.tipo !== 'ENTRADA' && m._origLref) {
-      // Encontrar la ENTRADA del mismo insumo cuyo lote coincida con _origLref
-      // En el Sheet original el lref era un ID viejo; si no encontramos coincidencia exacta,
-      // tomamos la entrada más reciente anterior del mismo insumo
       const candidatas = tempMovs.filter(c =>
         c.tipo === 'ENTRADA' && c.insumo === m.insumo && c.fecha <= m.fecha
       ).sort((a,b) => b.fecha.localeCompare(a.fecha));
       if (candidatas.length > 0) m.loteRefId = candidatas[0].id;
     }
+  });
+
+  // 6) Resolver cicloRefId: para cada CONSUMO_AUTO, buscar el ciclo del mismo día y color
+  // Esto reconecta los consumos automáticos con sus ciclos después de un pull.
+  tempMovs.forEach(m => {
+    m.cicloRefId = '';
+    if (m.tipo === 'CONSUMO_AUTO' && m._origCref) {
+      // Detectar color desde observaciones: "(VERDE)" o "(AZUL)"
+      const colorMatch = (m.observaciones || '').match(/\((VERDE|AZUL)\)/i);
+      const color = colorMatch ? colorMatch[1].toUpperCase() : null;
+
+      // Buscar ciclo del mismo día y mismo color
+      const ciclo = state.ciclos.find(c =>
+        c.fecha === m.fecha && (!color || c.color === color)
+      );
+      if (ciclo) {
+        m.cicloRefId = ciclo.id;
+        m.color = ciclo.color;
+      }
+    }
     delete m._origIdx;
     delete m._origLref;
+    delete m._origCref;
   });
 
   state.movimientos = tempMovs;
@@ -3397,17 +3419,39 @@ function reportFilamentoRoto() {
 
 function deleteRecord(id) {
   if (!ensureAdmin('eliminar registros de ciclos')) return;
+  const cicloABorrar = state.ciclos.find(r => r.id === id);
+  if (!cicloABorrar) return;
+
   showModal('¿Eliminar registro?',
     '<p>Esta acción eliminará el registro y revertirá el consumo automático asociado.</p>',
     () => {
+      const fecha = cicloABorrar.fecha;
+      const color = cicloABorrar.color;
+
+      // Eliminar el ciclo
       state.ciclos = state.ciclos.filter(r => r.id !== id);
-      // Eliminar consumo auto asociado
-      state.movimientos = state.movimientos.filter(m => m.cicloRefId !== id);
+
+      // Eliminar consumos auto asociados (por ID directo y por fecha+color como fallback)
+      state.movimientos = state.movimientos.filter(m => {
+        if (m.tipo !== 'CONSUMO_AUTO') return true;
+        // Eliminar si el cicloRefId coincide
+        if (m.cicloRefId === id) return false;
+        // Eliminar si es CONSUMO_AUTO huérfano del mismo día y color
+        const obsTieneColor = (m.observaciones || '').toUpperCase().includes(`(${color})`);
+        if (m.fecha === fecha && obsTieneColor) {
+          // Verificar que no haya otro ciclo del mismo día/color que pueda reclamarlo
+          const otroCiclo = state.ciclos.find(c => c.fecha === fecha && c.color === color);
+          if (!otroCiclo) return false; // huérfano confirmado
+        }
+        return true;
+      });
+
       saveState();
       renderCalendar();
       renderRecordsTable();
+      refreshInsumos();
       if (selectedDate) renderDaySummary(selectedDate);
-      showToast('Registro eliminado');
+      showToast('Registro eliminado y consumos revertidos');
     }
   );
 }
@@ -3689,79 +3733,35 @@ function deleteTurno(id) {
 
 // Calcula el stock total (bodega + en uso) en la unidad base del insumo
 function calcularStockPorInsumo(insumo) {
-  const def = INSUMOS_DEF[insumo];
-  if (!def) return 0;
-
-  // Para insumos granulares (CROMO, SILICIO): contamos GRAMOS totales
-  // Stock = sum(entradas: cantidad_tarros * gramos_por_tarro) - sum(consumos en gramos)
-  // Más complejo: cada lote tiene su propio contenido de gramos
-  if (def.granular) {
-    let totalGramos = 0;
-    // Sumar gramos disponibles por lote
-    const lotes = obtenerLotesPorInsumo(insumo);
-    lotes.forEach(l => {
-      totalGramos += l.gramosDisponibles;
-    });
-    return totalGramos;
-  }
-
-  // Insumos no granulares: contamos unidades
-  let stock = 0;
-  state.movimientos.filter(m => m.insumo === insumo).forEach(m => {
-    if (m.tipo === 'ENTRADA') stock += m.cantidad;
-    else if (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') stock -= m.cantidad;
-    else if (m.tipo === 'AGOTADO') {
-      // AGOTADO marca el final de un lote: el remanente que falta se descuenta
-      stock -= (m.cantidad || 0);
-    }
-    else if (m.tipo === 'REEMPLAZO') stock -= 1; // 1 filamento se rompió
-  });
-  return Math.max(0, stock);
+  // Stock TOTAL = lo que está en bodega + lo que está en uso
+  // Esto garantiza consistencia visual y matemática
+  return calcularStockBodega(insumo) + calcularStockEnUso(insumo);
 }
 
 // Stock solo en BODEGA (lotes que aún no se han abierto)
 function calcularStockBodega(insumo) {
   const def = INSUMOS_DEF[insumo];
   if (!def) return 0;
-  if (def.granular) {
-    // Sumar tarros que están en BODEGA (estado === 'BODEGA')
-    const lotes = obtenerLotesPorInsumo(insumo);
-    let totalGramos = 0;
-    lotes.forEach(l => {
-      if (l.estado === 'BODEGA') totalGramos += l.gramosOriginales;
-    });
-    return totalGramos;
-  }
-  // Para no granulares: bodega = entradas - (lo que ya pasó a uso)
-  let bodega = 0;
-  state.movimientos.filter(m => m.insumo === insumo).forEach(m => {
-    if (m.tipo === 'ENTRADA') bodega += m.cantidad;
-    else if (m.tipo === 'INICIO_USO') bodega -= m.cantidad;
+  // Lotes con estado BODEGA: suman su contenido completo
+  const lotes = obtenerLotesPorInsumo(insumo);
+  let total = 0;
+  lotes.forEach(l => {
+    if (l.estado === 'BODEGA') total += l.gramosOriginales;
   });
-  return Math.max(0, bodega);
+  return total;
 }
 
 // Stock EN USO actualmente
 function calcularStockEnUso(insumo) {
   const def = INSUMOS_DEF[insumo];
   if (!def) return 0;
-  if (def.granular) {
-    const lotes = obtenerLotesPorInsumo(insumo);
-    let totalGramos = 0;
-    lotes.forEach(l => {
-      if (l.estado === 'EN_USO') totalGramos += l.gramosDisponibles;
-    });
-    return totalGramos;
-  }
-  // No granulares: en uso = lo que se inició menos consumos y agotados
-  let enUso = 0;
-  state.movimientos.filter(m => m.insumo === insumo).forEach(m => {
-    if (m.tipo === 'INICIO_USO') enUso += m.cantidad;
-    else if (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') enUso -= m.cantidad;
-    else if (m.tipo === 'AGOTADO') enUso -= (m.cantidad || 0);
-    else if (m.tipo === 'REEMPLAZO') enUso -= 1;
+  // Lotes con estado EN_USO: suman gramos disponibles (lo que les queda)
+  const lotes = obtenerLotesPorInsumo(insumo);
+  let total = 0;
+  lotes.forEach(l => {
+    if (l.estado === 'EN_USO') total += l.gramosDisponibles;
   });
-  return Math.max(0, enUso);
+  return total;
 }
 
 // Obtiene la lista de lotes (entradas) con su estado actual
@@ -3775,17 +3775,18 @@ function obtenerLotesPorInsumo(insumo) {
     .filter(m => m.insumo === insumo && m.tipo === 'ENTRADA')
     .sort((a,b) => a.fecha.localeCompare(b.fecha) || a.id.localeCompare(b.id));
 
-  return entradas.map(entrada => {
+  // IDs válidos de entradas
+  const entradaIds = new Set(entradas.map(e => e.id));
+
+  // Construir lista inicial de lotes
+  const lotes = entradas.map(entrada => {
     const tarros = entrada.cantidad;
     const gramosPorTarro = entrada.gramosPorTarro || 0;
     const gramosOriginales = def.granular ? (tarros * gramosPorTarro) : tarros;
 
-    // ¿Se inició uso?
     const inicioUso = state.movimientos.find(m =>
       m.insumo === insumo && m.tipo === 'INICIO_USO' && m.loteRefId === entrada.id
     );
-
-    // ¿Se agotó?
     const agotado = state.movimientos.find(m =>
       m.insumo === insumo && m.tipo === 'AGOTADO' && m.loteRefId === entrada.id
     );
@@ -3793,20 +3794,6 @@ function obtenerLotesPorInsumo(insumo) {
     let estado = 'BODEGA';
     if (agotado) estado = 'AGOTADO';
     else if (inicioUso) estado = 'EN_USO';
-
-    // Gramos disponibles del lote en uso = original - consumido del mismo lote
-    let gramosDisponibles = gramosOriginales;
-    if (estado === 'EN_USO') {
-      const consumos = state.movimientos.filter(m =>
-        m.insumo === insumo &&
-        (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO') &&
-        m.loteRefId === entrada.id
-      );
-      const totalConsumido = consumos.reduce((s,c) => s + (c.cantidad || 0), 0);
-      gramosDisponibles = Math.max(0, gramosOriginales - totalConsumido);
-    } else if (estado === 'AGOTADO') {
-      gramosDisponibles = 0;
-    }
 
     return {
       id: entrada.id,
@@ -3816,13 +3803,63 @@ function obtenerLotesPorInsumo(insumo) {
       gramosPorTarro,
       tarros,
       gramosOriginales,
-      gramosDisponibles,
+      gramosDisponibles: gramosOriginales,
       estado,
       costoLote: entrada.costoLote || 0,
       costoUnitario: entrada.costoUnitario || 0,
       _entrada: entrada,
     };
   });
+
+  // Aplicar consumos a cada lote
+  // 1) Consumos con loteRefId válido descuentan de su lote
+  // 2) Consumos con loteRefId vacío o inválido (huérfanos) descuentan FIFO del lote EN_USO
+  const consumos = state.movimientos.filter(m =>
+    m.insumo === insumo &&
+    (m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO' || m.tipo === 'REEMPLAZO')
+  );
+
+  consumos.forEach(c => {
+    const cantidadConsumida = c.tipo === 'REEMPLAZO' ? 1 : (c.cantidad || 0);
+    const refValido = c.loteRefId && entradaIds.has(c.loteRefId);
+
+    if (refValido) {
+      // Descontar del lote referenciado
+      const lote = lotes.find(l => l.id === c.loteRefId);
+      if (lote) {
+        lote.gramosDisponibles = Math.max(0, lote.gramosDisponibles - cantidadConsumida);
+      }
+    } else {
+      // Huérfano: descontar FIFO del primer lote EN_USO con saldo,
+      // luego de lotes BODEGA si no hay EN_USO disponible
+      let restante = cantidadConsumida;
+      // Primero EN_USO
+      for (const lote of lotes) {
+        if (restante <= 0) break;
+        if (lote.estado === 'EN_USO' && lote.gramosDisponibles > 0) {
+          const a_descontar = Math.min(lote.gramosDisponibles, restante);
+          lote.gramosDisponibles -= a_descontar;
+          restante -= a_descontar;
+        }
+      }
+      // Si aún queda restante, descontar de BODEGA (caso degenerado pero posible)
+      for (const lote of lotes) {
+        if (restante <= 0) break;
+        if (lote.estado === 'BODEGA' && lote.gramosDisponibles > 0) {
+          const a_descontar = Math.min(lote.gramosDisponibles, restante);
+          lote.gramosDisponibles -= a_descontar;
+          restante -= a_descontar;
+        }
+      }
+    }
+  });
+
+  // Si un lote está AGOTADO, su disponible es 0
+  lotes.forEach(l => {
+    if (l.estado === 'AGOTADO') l.gramosDisponibles = 0;
+  });
+
+  return lotes;
 }
 
 // Encuentra el lote actualmente EN USO (puede haber 1 o ninguno)
