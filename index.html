@@ -313,6 +313,17 @@
   .day-cell.empty { background: transparent; cursor: default; }
   .day-cell.today { border-color: var(--accent-amber); }
   .day-cell.selected { border-color: var(--accent-cyan) !important; box-shadow: 0 0 0 2px var(--accent-cyan); }
+  .day-cell.past-day {
+    opacity: 0.4;
+    cursor: not-allowed;
+    position: relative;
+  }
+  .day-cell.past-day::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 4px;
+  }
   .day-cell.has-data-verde { background: linear-gradient(135deg, rgba(16,185,129,0.4), rgba(16,185,129,0.15)); }
   .day-cell.has-data-azul { background: linear-gradient(135deg, rgba(59,130,246,0.4), rgba(59,130,246,0.15)); }
   .day-cell.has-data-mixed { background: linear-gradient(135deg, rgba(16,185,129,0.35), rgba(59,130,246,0.35)); }
@@ -3165,6 +3176,10 @@ function renderCalendar() {
     if (dateISO === today) cell.classList.add('today');
     if (dateISO === selectedDate) cell.classList.add('selected');
 
+    // Días anteriores a hoy: solo visualización, no se puede seleccionar para registrar
+    const esPasado = dateISO < today;
+    if (esPasado) cell.classList.add('past-day');
+
     const dayRecords = state.ciclos.filter(r => r.fecha === dateISO);
     const dayPendientes = state.pendientes.filter(p => p.fechaEjecucion === dateISO);
 
@@ -3185,7 +3200,15 @@ function renderCalendar() {
 
     if (dayPendientes.length > 0) cell.classList.add('has-pending');
 
-    cell.onclick = () => selectDay(dateISO);
+    if (esPasado) {
+      // Días pasados: puede verse (para consulta) pero no registrar
+      cell.onclick = () => {
+        selectDay(dateISO); // carga los datos para ver
+        showToast(`Fecha pasada — solo consulta, no se puede registrar`, 'warning');
+      };
+    } else {
+      cell.onclick = () => selectDay(dateISO);
+    }
     cal.appendChild(cell);
   }
 }
@@ -3265,6 +3288,7 @@ function saveRecord() {
   const mediosCiclos = parseInt(document.getElementById('mediosInput').value) || 0;
 
   if (!fecha) { showToast('Selecciona una fecha', 'error'); return; }
+  if (!fechaEsValida(fecha)) return;
   if (ciclos === 0 && mediosCiclos === 0) {
     showToast('Ingresa al menos un ciclo', 'warning'); return;
   }
@@ -3326,6 +3350,17 @@ function registrarConsumoAuto(rec) {
 }
 
 // Helpers de permisos
+// Valida que la fecha no sea anterior a hoy (para no-admin, bloquea fechas pasadas)
+// Admin puede registrar en cualquier fecha; operario y admin tienen la misma restricción
+// según la regla de negocio: NADIE puede registrar en fechas anteriores.
+function fechaEsValida(fechaISO) {
+  const hoy = formatDateISO(new Date());
+  if (fechaISO < hoy) {
+    showToast(`No se pueden registrar datos en fechas anteriores a hoy (${formatDateDisplay(hoy)})`, 'error');
+    return false;
+  }
+  return true;
+}
 function isAdmin() {
   return currentUser && currentUser.rol === 'admin';
 }
@@ -3347,6 +3382,7 @@ function reportFilamentoRoto() {
     showToast('Selecciona una fecha primero', 'error');
     return;
   }
+  if (!fechaEsValida(fecha)) return;
   if (cicloNum <= 0) {
     showToast('Ingresa el número de ciclo donde se rompió', 'warning');
     return;
@@ -3484,6 +3520,7 @@ function savePendiente() {
   const medios = parseInt(document.getElementById('pendMedios').value) || 0;
 
   if (!fechaEj) { showToast('Selecciona la fecha de ejecución','error'); return; }
+  if (!fechaEsValida(fechaEj)) return;
   if (ciclos === 0 && medios === 0) {
     showToast('Ingresa al menos un ciclo','warning'); return;
   }
@@ -4021,6 +4058,7 @@ function saveMovimiento() {
   const def = INSUMOS_DEF[insumo];
 
   if (!fecha) { showToast('Selecciona una fecha','error'); return; }
+  if (!fechaEsValida(fecha)) return;
 
   // Validaciones específicas
   if (tipo === 'ENTRADA') {
@@ -4843,12 +4881,25 @@ function loadState() {
 // ================================================================
 loadState();
 
-// Set fecha hoy en inputs
+// Set fecha hoy en inputs y bloquear fechas pasadas con atributo min
 const todayISO = formatDateISO(new Date());
-document.getElementById('dateInput').value = todayISO;
-document.getElementById('pendDate').value = formatDateISO(new Date(Date.now() + 86400000));
-document.getElementById('movFecha').value = todayISO;
-document.getElementById('turnoFecha').value = formatDateISO(new Date(Date.now() + 86400000));
+const mananaISO = formatDateISO(new Date(Date.now() + 86400000));
+
+const dateInput = document.getElementById('dateInput');
+dateInput.value = todayISO;
+dateInput.setAttribute('min', todayISO);
+
+const pendDate = document.getElementById('pendDate');
+pendDate.value = mananaISO;
+pendDate.setAttribute('min', todayISO);
+
+const movFecha = document.getElementById('movFecha');
+movFecha.value = todayISO;
+movFecha.setAttribute('min', todayISO);
+
+const turnoFecha = document.getElementById('turnoFecha');
+turnoFecha.value = mananaISO;
+turnoFecha.setAttribute('min', todayISO);
 
 selectColor('VERDE');
 goToToday();
