@@ -912,6 +912,129 @@
   /* Ocultar botones de eliminar para operarios */
   body.hide-delete .icon-btn.danger { display: none !important; }
   body.hide-delete .delete-btn { display: none !important; }
+
+  /* === MÓDULO LIMPIEZA === */
+  .limpieza-barra-wrap {
+    background: var(--bg-input);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+  }
+
+  .limpieza-barra-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .limpieza-barra-titulo {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .limpieza-barra-estado {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+
+  .estado-ok    { background: rgba(16,185,129,0.2); color: var(--accent-verde); }
+  .estado-pronto { background: rgba(245,158,11,0.2); color: var(--accent-amber); }
+  .estado-limite { background: rgba(239,68,68,0.2);  color: var(--accent-red); }
+  .estado-vencido { background: var(--accent-red);   color: white; animation: urgente 1.2s infinite; }
+
+  @keyframes urgente {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .limpieza-track {
+    position: relative;
+    height: 14px;
+    background: var(--bg-secondary);
+    border-radius: 7px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .limpieza-fill {
+    height: 100%;
+    border-radius: 7px;
+    transition: width 0.5s, background 0.5s;
+  }
+
+  .limpieza-marcas {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .limpieza-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .limpieza-mini-card {
+    background: var(--bg-input);
+    border-radius: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--border-color);
+  }
+
+  .limpieza-mini-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+  }
+
+  .limpieza-mini-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+
+  .limpieza-semana-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    margin-bottom: 20px;
+  }
+
+  .limpieza-dia {
+    border-radius: 6px;
+    padding: 8px 4px;
+    text-align: center;
+    font-size: 0.78rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+  }
+
+  .limpieza-dia-label {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .limpieza-dia-fecha {
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .limpieza-dia.tiene-parcial { background: rgba(245,158,11,0.2); border-color: var(--accent-amber); }
+  .limpieza-dia.tiene-completa { background: rgba(16,185,129,0.2); border-color: var(--accent-verde); }
+  .limpieza-dia.hoy { border-color: var(--accent-cyan) !important; box-shadow: 0 0 0 2px var(--accent-cyan); }
 </style>
 </head>
 <body>
@@ -1010,6 +1133,9 @@
     </div>
     <div class="nav-item" data-page="costos" data-perm="costos">
       <span class="nav-icon">💰</span> Costos
+    </div>
+    <div class="nav-item" data-page="limpieza" data-perm="limpieza">
+      <span class="nav-icon">🧹</span> Limpieza
     </div>
     <div class="nav-item" data-page="reportes" data-perm="reportes">
       <span class="nav-icon">📁</span> Excel / Reportes
@@ -1602,6 +1728,75 @@
           <li>📡 <strong>Sin internet:</strong> la app sigue funcionando, sincroniza al recuperar conexión</li>
           <li>🔒 <strong>Seguridad:</strong> tu URL es única y secreta, no la compartas</li>
         </ul>
+      </div>
+    </div>
+
+    <!-- ============ LIMPIEZA ============ -->
+    <div class="page" id="page-limpieza">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>🧹 Control de Limpieza</h2>
+          <p>Registro de limpiezas de máquina por operaria · Meta: 2 veces/semana · máx. 3 días de lapso</p>
+        </div>
+      </div>
+
+      <!-- BARRA DE ESTADO GENERAL -->
+      <div id="limpiezaBarraContainer"></div>
+
+      <!-- CARDS RESUMEN -->
+      <div class="limpieza-cards" id="limpiezaCards"></div>
+
+      <!-- VISTA SEMANAL -->
+      <div class="card">
+        <h3>📅 Semana actual</h3>
+        <div class="limpieza-semana-grid" id="limpiezaSemana"></div>
+        <div style="display:flex; gap:16px; margin-top:10px; font-size:0.82rem; color:var(--text-muted);">
+          <span style="color:var(--accent-verde);">🟢 Limpieza completa</span>
+          <span style="color:var(--accent-amber);">🟡 Limpieza parcial</span>
+        </div>
+      </div>
+
+      <!-- REGISTRAR LIMPIEZA -->
+      <div class="card">
+        <h3>➕ Registrar limpieza</h3>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" id="limpiezaFecha" />
+          </div>
+          <div class="form-group">
+            <label>Tipo de limpieza</label>
+            <select id="limpiezaTipo">
+              <option value="PARCIAL">🟡 Limpieza parcial</option>
+              <option value="COMPLETA">🟢 Limpieza completa</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Operaria</label>
+            <input type="text" id="limpiezaOperaria" placeholder="Nombre de quien hizo la limpieza" />
+          </div>
+        </div>
+        <button class="btn btn-success" onclick="saveLimpieza()">✓ Registrar</button>
+      </div>
+
+      <!-- HISTORIAL -->
+      <div class="card">
+        <h3>📋 Historial de limpiezas</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>FECHA</th>
+                <th>DÍA</th>
+                <th>TIPO</th>
+                <th>OPERARIA</th>
+                <th>DÍAS DESDE ANTERIOR</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="limpiezaTable"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -2228,6 +2423,7 @@ const PERMISOS_LIST = [
   { key: 'turnos',     label: '👥 Turnos' },
   { key: 'insumos',    label: '📦 Insumos' },
   { key: 'costos',     label: '💰 Costos' },
+  { key: 'limpieza',   label: '🧹 Limpieza' },
   { key: 'reportes',   label: '📁 Reportes' },
   { key: 'gsheets',    label: '☁️ Google Sheets' },
   { key: 'admin',      label: '🛡️ Administración' },
@@ -2548,6 +2744,7 @@ function refreshAll() {
   refreshInsumos();
   refreshDashboard();
   refreshCostos();
+  refreshLimpieza();
 }
 
 // === Aplicar permisos: ocultar items del sidebar y páginas no permitidas ===
@@ -2680,10 +2877,10 @@ function updatePermisosCheckboxes(currentPermisos) {
   const rol = document.getElementById('newUserRol').value;
   const defaults = currentPermisos || (rol === 'admin' ? {
     dashboard: true, ciclos: true, pendientes: true, turnos: true,
-    insumos: true, costos: true, reportes: true, gsheets: true, admin: true
+    insumos: true, costos: true, limpieza: true, reportes: true, gsheets: true, admin: true
   } : {
     dashboard: true, ciclos: true, pendientes: true, turnos: false,
-    insumos: false, costos: false, reportes: false, gsheets: false, admin: false
+    insumos: false, costos: false, limpieza: true, reportes: false, gsheets: false, admin: false
   });
   cont.innerHTML = PERMISOS_LIST.map(p => `
     <div class="permiso-item" onclick="document.getElementById('perm-${p.key}').click();">
@@ -2913,6 +3110,227 @@ function registrarInventarioInicial() {
 }
 
 
+// ================================================================
+// MÓDULO LIMPIEZA
+// ================================================================
+const LIMPIEZA_MAX_DIAS = 3;
+const LIMPIEZA_META_SEMANA = 2;
+
+function saveLimpieza() {
+  const fecha = document.getElementById('limpiezaFecha').value;
+  const tipo = document.getElementById('limpiezaTipo').value;
+  const operaria = document.getElementById('limpiezaOperaria').value.trim();
+  if (!fecha) { showToast('Selecciona una fecha', 'error'); return; }
+  if (!operaria) { showToast('Indica quién realizó la limpieza', 'warning'); return; }
+  if (!fechaEsValida(fecha)) return;
+  const existe = state.limpiezas.find(l =>
+    l.fecha === fecha && l.tipo === tipo && l.operaria.toLowerCase() === operaria.toLowerCase()
+  );
+  if (existe) { showToast('Ya existe un registro de este tipo para esta operaria en esa fecha', 'warning'); return; }
+  state.limpiezas.push({ id: generateId(), fecha, tipo, operaria });
+  saveState();
+  refreshLimpieza();
+  showToast(`✓ Limpieza ${tipo.toLowerCase()} registrada`);
+  document.getElementById('limpiezaOperaria').value = '';
+}
+
+function deleteLimpieza(id) {
+  if (!ensureAdmin('eliminar registros de limpieza')) return;
+  showModal('¿Eliminar registro?', '<p>Se eliminará este registro de limpieza.</p>', () => {
+    state.limpiezas = state.limpiezas.filter(l => l.id !== id);
+    saveState();
+    refreshLimpieza();
+    showToast('Registro eliminado');
+  });
+}
+
+function diasDesdeUltimaLimpieza() {
+  if (!state.limpiezas || state.limpiezas.length === 0) return null;
+  const hoy = formatDateISO(new Date());
+  const sorted = [...state.limpiezas].sort((a,b) => b.fecha.localeCompare(a.fecha));
+  const ultima = sorted[0];
+  const diff = Math.floor((new Date(hoy) - new Date(ultima.fecha)) / 86400000);
+  return { dias: diff, fecha: ultima.fecha, tipo: ultima.tipo, operaria: ultima.operaria };
+}
+
+function limpiezasEnSemanaActual() {
+  const hoy = new Date();
+  const diaSem = hoy.getDay();
+  const lunes = new Date(hoy);
+  lunes.setDate(hoy.getDate() - (diaSem === 0 ? 6 : diaSem - 1));
+  const dom = new Date(lunes); dom.setDate(lunes.getDate() + 6);
+  const lunesISO = formatDateISO(lunes);
+  const domISO = formatDateISO(dom);
+  return (state.limpiezas || []).filter(l => l.fecha >= lunesISO && l.fecha <= domISO);
+}
+
+function proximaFechaLimite() {
+  const info = diasDesdeUltimaLimpieza();
+  if (!info) return null;
+  const ultima = new Date(info.fecha);
+  const limite = new Date(ultima);
+  limite.setDate(ultima.getDate() + LIMPIEZA_MAX_DIAS);
+  return formatDateISO(limite);
+}
+
+function estadoLimpieza() {
+  const info = diasDesdeUltimaLimpieza();
+  if (!info) return { nivel: 'vencido', texto: '⛔ Sin registros', dias: null };
+  const d = info.dias;
+  if (d === 0) return { nivel: 'ok',      texto: '✓ Limpiada hoy',       dias: d };
+  if (d === 1) return { nivel: 'ok',      texto: '✓ Hace 1 día',         dias: d };
+  if (d === 2) return { nivel: 'pronto',  texto: '⚡ Limpiar pronto',    dias: d };
+  if (d === 3) return { nivel: 'limite',  texto: '⚠️ Hoy es el límite',  dias: d };
+  return             { nivel: 'vencido',  texto: `🔴 ${d} días sin limpiar`, dias: d };
+}
+
+function refreshLimpieza() {
+  renderLimpiezaBarra();
+  renderLimpiezaCards();
+  renderLimpiezaSemana();
+  renderLimpiezaTable();
+}
+
+function renderLimpiezaBarra() {
+  const cont = document.getElementById('limpiezaBarraContainer');
+  if (!cont) return;
+  const estado = estadoLimpieza();
+  const info = diasDesdeUltimaLimpieza();
+  const porc = info ? Math.min(100, (info.dias / LIMPIEZA_MAX_DIAS) * 100) : 100;
+  const colores = { ok:'#10b981', pronto:'#f59e0b', limite:'#ef4444', vencido:'#dc2626' };
+  const color = colores[estado.nivel];
+  const claseEstado = { ok:'estado-ok', pronto:'estado-pronto', limite:'estado-limite', vencido:'estado-vencido' }[estado.nivel];
+  const proxLimite = proximaFechaLimite();
+  const proxTexto = proxLimite ? `Fecha límite: ${formatDateDisplay(proxLimite)}` : 'Sin referencia';
+  cont.innerHTML = `
+    <div class="limpieza-barra-wrap" style="border-left:4px solid ${color}; margin-bottom:20px;">
+      <div class="limpieza-barra-header">
+        <span class="limpieza-barra-titulo">Estado de limpieza de la máquina</span>
+        <span class="limpieza-barra-estado ${claseEstado}">${estado.texto}</span>
+      </div>
+      <div class="limpieza-track">
+        <div class="limpieza-fill" style="width:${porc}%; background:${color};"></div>
+      </div>
+      <div class="limpieza-marcas">
+        <span>Última limpieza${info ? ': ' + formatDateDisplay(info.fecha) + ' (' + info.tipo + ' · ' + info.operaria + ')' : ': —'}</span>
+        <span>${proxTexto}</span>
+      </div>
+    </div>`;
+}
+
+function renderLimpiezaCards() {
+  const cont = document.getElementById('limpiezaCards');
+  if (!cont) return;
+  const semana = limpiezasEnSemanaActual();
+  const total = (state.limpiezas || []).length;
+  const completas = (state.limpiezas || []).filter(l => l.tipo === 'COMPLETA').length;
+  const parciales  = (state.limpiezas || []).filter(l => l.tipo === 'PARCIAL').length;
+  const semOk = semana.length >= LIMPIEZA_META_SEMANA;
+  cont.innerHTML = `
+    <div class="limpieza-mini-card" style="border-left-color:${semOk ? 'var(--accent-verde)' : 'var(--accent-amber)'};">
+      <div class="limpieza-mini-label">Esta semana</div>
+      <div class="limpieza-mini-value" style="color:${semOk ? 'var(--accent-verde)' : 'var(--accent-amber)'};">${semana.length} / ${LIMPIEZA_META_SEMANA}</div>
+    </div>
+    <div class="limpieza-mini-card" style="border-left-color:var(--accent-verde);">
+      <div class="limpieza-mini-label">Completas (total)</div>
+      <div class="limpieza-mini-value">${completas}</div>
+    </div>
+    <div class="limpieza-mini-card" style="border-left-color:var(--accent-amber);">
+      <div class="limpieza-mini-label">Parciales (total)</div>
+      <div class="limpieza-mini-value">${parciales}</div>
+    </div>
+    <div class="limpieza-mini-card" style="border-left-color:var(--accent-cyan);">
+      <div class="limpieza-mini-label">Registros totales</div>
+      <div class="limpieza-mini-value">${total}</div>
+    </div>`;
+}
+
+function renderLimpiezaSemana() {
+  const cont = document.getElementById('limpiezaSemana');
+  if (!cont) return;
+  const hoy = new Date();
+  const diaSem = hoy.getDay();
+  const lunes = new Date(hoy);
+  lunes.setDate(hoy.getDate() - (diaSem === 0 ? 6 : diaSem - 1));
+  const diasNombres = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  const todayISO = formatDateISO(hoy);
+  cont.innerHTML = diasNombres.map((nombre, i) => {
+    const d = new Date(lunes); d.setDate(lunes.getDate() + i);
+    const iso = formatDateISO(d);
+    const esHoy = iso === todayISO;
+    const limpiezasDia = (state.limpiezas || []).filter(l => l.fecha === iso);
+    const tieneCompleta = limpiezasDia.some(l => l.tipo === 'COMPLETA');
+    const tieneParcial  = limpiezasDia.some(l => l.tipo === 'PARCIAL');
+    let clase = tieneCompleta ? 'tiene-completa' : tieneParcial ? 'tiene-parcial' : '';
+    if (esHoy) clase += ' hoy';
+    const iconos = tieneCompleta ? '<div>🟢</div>' : tieneParcial ? '<div>🟡</div>' : '<div style="color:var(--text-muted);font-size:0.7rem;">—</div>';
+    const ops = [...new Set(limpiezasDia.map(l => l.operaria))];
+    const opTexto = ops.length ? `<div style="font-size:0.62rem;color:var(--text-muted);margin-top:2px;line-height:1.2;">${ops.join(', ')}</div>` : '';
+    return `<div class="limpieza-dia ${clase}">
+      <div class="limpieza-dia-label">${nombre}</div>
+      <div class="limpieza-dia-fecha" style="${esHoy ? 'color:var(--accent-cyan)' : ''}">${d.getDate()}</div>
+      ${iconos}${opTexto}
+    </div>`;
+  }).join('');
+}
+
+function renderLimpiezaTable() {
+  const tbody = document.getElementById('limpiezaTable');
+  if (!tbody) return;
+  const limpiezas = state.limpiezas || [];
+  if (limpiezas.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><h4>Sin registros de limpieza</h4></td></tr>`;
+    return;
+  }
+  const sorted = [...limpiezas].sort((a,b) => b.fecha.localeCompare(a.fecha));
+  const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  tbody.innerHTML = sorted.map((l, idx) => {
+    const anterior = sorted[idx + 1];
+    let diasDesde = '—';
+    if (anterior) {
+      const diff = Math.floor((new Date(l.fecha) - new Date(anterior.fecha)) / 86400000);
+      diasDesde = diff > LIMPIEZA_MAX_DIAS
+        ? `<span class="badge badge-red">⚠ ${diff}d (excedido)</span>`
+        : diff === LIMPIEZA_MAX_DIAS
+          ? `<span class="badge badge-amber">${diff}d (límite)</span>`
+          : `<span class="badge badge-verde">${diff}d ✓</span>`;
+    }
+    const badgeTipo = l.tipo === 'COMPLETA'
+      ? '<span class="badge badge-verde">🟢 Completa</span>'
+      : '<span class="badge badge-amber">🟡 Parcial</span>';
+    const diaNum = new Date(l.fecha + 'T12:00:00').getDay();
+    return `<tr>
+      <td>${formatDateDisplay(l.fecha)}</td>
+      <td>${dias[diaNum]}</td>
+      <td>${badgeTipo}</td>
+      <td>${l.operaria}</td>
+      <td>${diasDesde}</td>
+      <td><button class="icon-btn danger" onclick="deleteLimpieza('${l.id}')">🗑️</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function getLimpiezaAlerta() {
+  const estado = estadoLimpieza();
+  const semana = limpiezasEnSemanaActual();
+  const alertas = [];
+  if (estado.nivel === 'vencido' && (state.limpiezas || []).length === 0) {
+    alertas.push({ tipo: 'warning', msg: '🧹 No hay registros de limpieza. Registra las limpiezas de la máquina.' });
+  } else if (estado.nivel === 'vencido') {
+    alertas.push({ tipo: 'danger', msg: `🧹 <strong>Limpieza urgente:</strong> ${estado.texto}. La máquina supera el límite de ${LIMPIEZA_MAX_DIAS} días.` });
+  } else if (estado.nivel === 'limite') {
+    alertas.push({ tipo: 'warning', msg: `🧹 ${estado.texto}. Programa la limpieza hoy.` });
+  } else if (estado.nivel === 'pronto') {
+    alertas.push({ tipo: 'info', msg: `🧹 ${estado.texto}. La próxima limpieza debe ser en los próximos días.` });
+  }
+  if (semana.length < LIMPIEZA_META_SEMANA && new Date().getDay() >= 4) {
+    const faltantes = LIMPIEZA_META_SEMANA - semana.length;
+    alertas.push({ tipo: 'warning', msg: `🧹 Faltan <strong>${faltantes}</strong> limpieza(s) esta semana (meta: ${LIMPIEZA_META_SEMANA}).` });
+  }
+  return alertas;
+}
+
+// ================================================================
 let chartCostos = null;
 
 function refreshCostos() {
@@ -3037,10 +3455,11 @@ function renderChartCostos() {
 
 
 const state = {
-  ciclos: [],          // {id, fecha, ciclos, mediosCiclos, color}
-  pendientes: [],      // {id, fechaRegistro, fechaEjecucion, ciclos, medios, color}
-  turnos: [],          // {id, fecha, operaria, horaInicio, horaFin, horas, ciclosAsignados, observaciones}
-  movimientos: [],     // {id, fecha, insumo, tipo, cantidad, lote, observaciones, stockResultante}
+  ciclos: [],
+  pendientes: [],
+  turnos: [],
+  movimientos: [],
+  limpiezas: [],   // {id, fecha, tipo:'PARCIAL'|'COMPLETA', operaria, observaciones}
 };
 
 let currentDate = new Date();
@@ -3128,6 +3547,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     if (page === 'insumos') refreshInsumos();
     if (page === 'gsheets') updateGSStatusUI();
     if (page === 'costos') refreshCostos();
+    if (page === 'limpieza') refreshLimpieza();
     if (page === 'admin') {
       loadUsers();
       updatePermisosCheckboxes();
@@ -4410,6 +4830,10 @@ function refreshDashboard() {
   if (countAlertas > 0) {
     alertas.push(`<div class="alert alert-danger"><span>🚨</span><span><strong>${countAlertas} insumo(s)</strong> requieren reposición. Ve al módulo de insumos.</span></div>`);
   }
+  // Alertas de limpieza
+  getLimpiezaAlerta().forEach(a => {
+    alertas.push(`<div class="alert alert-${a.tipo}"><span>🧹</span><span>${a.msg}</span></div>`);
+  });
   alertCont.innerHTML = alertas.join('');
 
   // Charts
@@ -4900,6 +5324,12 @@ movFecha.setAttribute('min', todayISO);
 const turnoFecha = document.getElementById('turnoFecha');
 turnoFecha.value = mananaISO;
 turnoFecha.setAttribute('min', todayISO);
+
+const limpiezaFecha = document.getElementById('limpiezaFecha');
+if (limpiezaFecha) {
+  limpiezaFecha.value = todayISO;
+  limpiezaFecha.setAttribute('min', todayISO);
+}
 
 selectColor('VERDE');
 goToToday();
