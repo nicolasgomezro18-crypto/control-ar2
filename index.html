@@ -2717,6 +2717,18 @@ function applyUserPermissions() {
     document.body.classList.add('hide-delete');
   }
 
+  // Atributo min en inputs de fecha: admin sin restricción, operario solo hoy en adelante
+  const todayISO = formatDateISO(new Date());
+  ['dateInput', 'pendDate', 'movFecha', 'turnoFecha', 'limpiezaFecha'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (currentUser.rol === 'admin') {
+      el.removeAttribute('min');
+    } else {
+      el.setAttribute('min', todayISO);
+    }
+  });
+
   // Si la página actual no es accesible, ir a primera disponible
   const activeNav = document.querySelector('.nav-item.active');
   if (activeNav && activeNav.dataset.perm && !perms[activeNav.dataset.perm]) {
@@ -3259,13 +3271,25 @@ function formatCicloText(c, m) {
 // NAVEGACIÓN
 // ================================================================
 document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', () => {
+  item.addEventListener('click', async () => {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     item.classList.add('active');
     const page = item.dataset.page;
     document.getElementById('page-' + page).classList.add('active');
+
+    // Sincronización: bajar datos del backend antes de renderizar
+    // Esto asegura que los operarios vean los cambios del admin y viceversa
+    if (GS.isConnected && page !== 'gsheets' && page !== 'admin') {
+      updateSyncStatus('syncing', 'Actualizando...');
+      await pullAllSilent();
+      updateSyncStatus('connected', 'Sincronizado ✓');
+    }
+
     if (page === 'dashboard') refreshDashboard();
+    if (page === 'ciclos') { renderCalendar(); renderRecordsTable(); }
+    if (page === 'pendientes') renderPendientes();
+    if (page === 'turnos') renderTurnos();
     if (page === 'insumos') refreshInsumos();
     if (page === 'gsheets') updateGSStatusUI();
     if (page === 'costos') refreshCostos();
@@ -3322,9 +3346,10 @@ function renderCalendar() {
     if (dateISO === today) cell.classList.add('today');
     if (dateISO === selectedDate) cell.classList.add('selected');
 
-    // Días anteriores a hoy: solo visualización, no se puede seleccionar para registrar
+    // Días anteriores a hoy: para operario solo consulta, para admin sí puede registrar
     const esPasado = dateISO < today;
-    if (esPasado) cell.classList.add('past-day');
+    const adminPuede = isAdmin();
+    if (esPasado && !adminPuede) cell.classList.add('past-day');
 
     const dayRecords = state.ciclos.filter(r => r.fecha === dateISO);
     const dayPendientes = state.pendientes.filter(p => p.fechaEjecucion === dateISO);
@@ -3346,11 +3371,11 @@ function renderCalendar() {
 
     if (dayPendientes.length > 0) cell.classList.add('has-pending');
 
-    if (esPasado) {
-      // Días pasados: puede verse (para consulta) pero no registrar
+    if (esPasado && !adminPuede) {
+      // Operario en fecha pasada: solo consulta
       cell.onclick = () => {
-        selectDay(dateISO); // carga los datos para ver
-        showToast(`Fecha pasada — solo consulta, no se puede registrar`, 'warning');
+        selectDay(dateISO);
+        showToast(`Fecha pasada — solo el administrador puede registrar`, 'warning');
       };
     } else {
       cell.onclick = () => selectDay(dateISO);
@@ -3439,28 +3464,64 @@ function saveRecord() {
     showToast('Ingresa al menos un ciclo', 'warning'); return;
   }
 
-  // Reemplazar si ya existe registro mismo día + mismo color
-  const idx = state.ciclos.findIndex(r => r.fecha === fecha && r.color === selectedColor);
-  const newRec = {
-    id: idx >= 0 ? state.ciclos[idx].id : generateId(),
-    fecha, ciclos, mediosCiclos, color: selectedColor
+  // Verificar insumos EN USO (no en bodega): el ciclo se permite con advertencia
+  const totalUnidades = ciclos + mediosCiclos * 0.5;
+  const insumosCiclo = ['HIDROFOBICO', 'ZIRCONIO', 'CUARZO'];
+  const problemas = [];
+
+  insumosCiclo.forEach(k => {
+    const enUso = obtenerLoteEnUso(k);
+    const def = INSUMOS_DEF[k];
+    if (!enUso) {
+      problemas.push(`<strong>${def.nombre}</strong>: no hay lote en uso (debes abrir uno en 📦 Insumos)`);
+    } else if (enUso.gramosDisponibles < totalUnidades) {
+      problemas.push(`<strong>${def.nombre}</strong>: solo quedan ${enUso.gramosDisponibles} ${def.unidad} en el lote en uso (necesitas ${totalUnidades})`);
+    }
+  });
+
+  const proceder = () => {
+    // Reemplazar si ya existe registro mismo día + mismo color
+    const idx = state.ciclos.findIndex(r => r.fecha === fecha && r.color === selectedColor);
+    const newRec = {
+      id: idx >= 0 ? state.ciclos[idx].id : generateId(),
+      fecha, ciclos, mediosCiclos, color: selectedColor
+    };
+
+    if (idx >= 0) {
+      state.ciclos[idx] = newRec;
+      showToast('Registro actualizado');
+    } else {
+      state.ciclos.push(newRec);
+      showToast('Registro guardado');
+    }
+
+    registrarConsumoAuto(newRec);
+    saveState();
+    renderCalendar();
+    renderRecordsTable();
+    renderDaySummary(fecha);
   };
 
-  if (idx >= 0) {
-    state.ciclos[idx] = newRec;
-    showToast('Registro actualizado');
+  // Si hay problemas con insumos, mostrar advertencia y pedir confirmación
+  if (problemas.length > 0) {
+    const html = `
+      <div class="alert alert-warning" style="margin-bottom:12px;">
+        <span>⚠️</span>
+        <span>Hay problemas con los insumos para este ciclo:</span>
+      </div>
+      <ul style="margin-left:20px; line-height:1.8; font-size:0.9rem; color:var(--text-secondary);">
+        ${problemas.map(p => `<li>${p}</li>`).join('')}
+      </ul>
+      <p style="margin-top:12px; font-size:0.9rem;">
+        El registro se guardará y el descuento quedará pendiente.
+        Te recomendamos primero abrir o reponer los insumos en el módulo 📦 Insumos.
+      </p>
+      <p style="margin-top:10px; font-size:0.9rem;"><strong>¿Deseas continuar de todas formas?</strong></p>
+    `;
+    showModal('⚠️ Insumos insuficientes', html, proceder, 'Sí, registrar de todas formas');
   } else {
-    state.ciclos.push(newRec);
-    showToast('Registro guardado');
+    proceder();
   }
-
-  // Auto-consumo de insumos por cada ciclo completo
-  registrarConsumoAuto(newRec);
-
-  saveState();
-  renderCalendar();
-  renderRecordsTable();
-  renderDaySummary(fecha);
 }
 
 function registrarConsumoAuto(rec) {
@@ -3496,13 +3557,13 @@ function registrarConsumoAuto(rec) {
 }
 
 // Helpers de permisos
-// Valida que la fecha no sea anterior a hoy (para no-admin, bloquea fechas pasadas)
-// Admin puede registrar en cualquier fecha; operario y admin tienen la misma restricción
-// según la regla de negocio: NADIE puede registrar en fechas anteriores.
+// Valida que la fecha no sea anterior a hoy. El admin puede registrar en
+// cualquier fecha (incluyendo pasadas); el operario solo puede hoy en adelante.
 function fechaEsValida(fechaISO) {
+  if (isAdmin()) return true; // admin puede registrar fechas pasadas
   const hoy = formatDateISO(new Date());
   if (fechaISO < hoy) {
-    showToast(`No se pueden registrar datos en fechas anteriores a hoy (${formatDateDisplay(hoy)})`, 'error');
+    showToast(`Solo el administrador puede registrar en fechas anteriores a hoy (${formatDateDisplay(hoy)})`, 'error');
     return false;
   }
   return true;
