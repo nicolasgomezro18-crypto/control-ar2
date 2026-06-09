@@ -913,6 +913,30 @@
   body.hide-delete .icon-btn.danger { display: none !important; }
   body.hide-delete .delete-btn { display: none !important; }
 
+  /* Checkboxes del reinicio */
+  .reset-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 0.92rem;
+  }
+  .reset-check:hover { background: var(--bg-card); }
+  .reset-check input { width: 16px; height: 16px; accent-color: var(--accent-red); }
+
+  /* Botón danger */
+  .btn-danger {
+    background: var(--accent-red);
+    color: white;
+  }
+  .btn-danger:hover {
+    background: #dc2626;
+  }
+
   /* === MÓDULO LIMPIEZA === */
   .limpieza-status-grid {
     display: grid;
@@ -1162,21 +1186,12 @@
 
         <div>
           <div class="card">
-            <h3>📝 Registrar ciclos</h3>
+            <h3>📝 Registrar ciclo</h3>
             <div class="form-group">
               <label>Fecha</label>
               <input type="date" id="dateInput" />
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Ciclos completos</label>
-                <input type="number" id="ciclosInput" min="0" step="1" value="0" />
-              </div>
-              <div class="form-group">
-                <label>Medios ciclos</label>
-                <input type="number" id="mediosInput" min="0" step="1" value="0" />
-              </div>
-            </div>
+
             <div class="form-group">
               <label>Color del antirreflejo</label>
               <div class="color-options">
@@ -1184,22 +1199,38 @@
                 <div class="color-option azul" data-color="AZUL" onclick="selectColor('AZUL')">🔵 AZUL</div>
               </div>
             </div>
-            <button class="btn btn-success" style="width:100%" onclick="saveRecord()">✓ Guardar</button>
 
-            <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border-color);">
-              <label style="font-weight:500; color:var(--text-secondary); font-size:0.85rem; display:block; margin-bottom:8px;">
-                🧵 Reportar filamento roto
-              </label>
-              <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
-                Si el filamento se rompió durante un ciclo, indica en qué ciclo (1, 2, 3...) y se descontará automáticamente.
-              </p>
-              <div class="form-row" style="gap:10px;">
-                <div class="form-group" style="margin:0;">
-                  <input type="number" id="filamentoCicloNum" min="1" step="1" placeholder="N° de ciclo" />
-                </div>
-                <div class="form-group" style="margin:0;">
-                  <button class="btn btn-warning" style="width:100%;" onclick="reportFilamentoRoto()">🧵 Reportar</button>
-                </div>
+            <div class="form-row">
+              <button class="btn btn-success" style="padding:16px; font-size:1rem;" onclick="registrarCicloIndividual('COMPLETO')">
+                ✅ Ciclo completo
+              </button>
+              <button class="btn btn-warning" style="padding:16px; font-size:1rem;" onclick="registrarCicloIndividual('MEDIO')">
+                ½ Medio ciclo
+              </button>
+            </div>
+
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:10px; text-align:center;">
+              Cada clic registra <strong>un ciclo individual</strong> con la hora actual.
+            </p>
+          </div>
+
+          <div class="card">
+            <h3>🧵 Filamento</h3>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:10px;">
+              Si el filamento se rompió en el último ciclo registrado, repórtalo aquí:
+            </p>
+            <button class="btn btn-warning" style="width:100%;" onclick="reportFilamentoEnUltimoCiclo()">
+              🧵 Filamento se rompió en el último ciclo
+            </button>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px;">
+              También puedes reportar uno específico por número:
+            </p>
+            <div class="form-row" style="gap:10px;">
+              <div class="form-group" style="margin:0;">
+                <input type="number" id="filamentoCicloNum" min="1" step="1" placeholder="N° de ciclo" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <button class="btn btn-secondary" style="width:100%;" onclick="reportFilamentoRoto()">Reportar</button>
               </div>
             </div>
           </div>
@@ -1223,8 +1254,12 @@
             <thead>
               <tr>
                 <th>FECHA</th>
-                <th>CICLO REALIZADO</th>
-                <th>COLOR DEL CICLO</th>
+                <th>HORA</th>
+                <th>N°</th>
+                <th>TIPO</th>
+                <th>COLOR</th>
+                <th>OPERARIA</th>
+                <th>INCIDENTE</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -1918,6 +1953,33 @@
           </span>
         </div>
       </div>
+
+      <!-- BOTÓN DE REINICIO -->
+      <div class="card" style="border:2px solid var(--accent-red); border-radius:10px;">
+        <h3 style="color:var(--accent-red);">🗑️ Reiniciar datos del sistema</h3>
+        <p style="color:var(--text-secondary); margin-bottom:14px;">
+          Esta operación <strong>borra permanentemente</strong> los datos de las categorías que selecciones.
+          Útil para empezar un nuevo período. <strong style="color:var(--accent-red);">Esta acción NO se puede deshacer.</strong>
+        </p>
+
+        <div style="background:var(--bg-input); border-radius:8px; padding:14px; margin-bottom:14px;">
+          <div style="font-weight:600; margin-bottom:10px; color:var(--text-secondary);">Selecciona qué borrar:</div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
+            <label class="reset-check"><input type="checkbox" id="resetCiclos" /> <span>📅 Ciclos realizados</span></label>
+            <label class="reset-check"><input type="checkbox" id="resetPendientes" /> <span>⏳ Ciclos pendientes</span></label>
+            <label class="reset-check"><input type="checkbox" id="resetTurnos" /> <span>👥 Turnos programados</span></label>
+            <label class="reset-check"><input type="checkbox" id="resetMovimientos" /> <span>📦 Movimientos de insumos</span></label>
+            <label class="reset-check"><input type="checkbox" id="resetLimpiezas" /> <span>🧹 Registros de limpieza</span></label>
+            <label class="reset-check"><input type="checkbox" id="resetUsuarios" /> <span>⚠️ Usuarios (peligroso)</span></label>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-secondary" onclick="seleccionarTodoReinicio(true)">☑️ Seleccionar todo</button>
+          <button class="btn btn-secondary" onclick="seleccionarTodoReinicio(false)">☐ Deseleccionar</button>
+          <button class="btn btn-danger" onclick="confirmarReinicio()" style="margin-left:auto;">🗑️ Reiniciar lo seleccionado</button>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -2091,8 +2153,33 @@ function toggleAutoSync() {
 function dataToRows(type) {
   const rows = [];
   if (type === 'ciclos') {
-    [...state.ciclos].sort((a,b) => a.fecha.localeCompare(b.fecha)).forEach(r => {
-      rows.push([formatDateDisplay(r.fecha), formatCicloText(r.ciclos, r.mediosCiclos), r.color]);
+    // Modelo nuevo: cada ciclo es una fila plana con ID, fecha, hora, número, tipo, color, operaria, incidente, observaciones
+    [...state.ciclos].sort((a,b) =>
+      a.fecha.localeCompare(b.fecha) || (a.hora||'').localeCompare(b.hora||'')
+    ).forEach(r => {
+      // Si es modelo viejo (sin tipo), lo convertimos al vuelo
+      if (r.tipo) {
+        rows.push([
+          r.id || '',
+          formatDateDisplay(r.fecha),
+          r.hora || '',
+          r.numero || '',
+          r.tipo,
+          r.color,
+          r.operaria || '',
+          r.incidente || '',
+          r.observaciones || ''
+        ]);
+      } else {
+        // Legacy: expandir un registro agrupado en filas individuales
+        let n = 1;
+        for (let i = 0; i < (r.ciclos || 0); i++) {
+          rows.push([generateId(), formatDateDisplay(r.fecha), '', n++, 'COMPLETO', r.color, '', '', 'Importado de modelo agrupado']);
+        }
+        for (let i = 0; i < (r.mediosCiclos || 0); i++) {
+          rows.push([generateId(), formatDateDisplay(r.fecha), '', n++, 'MEDIO', r.color, '', '', 'Importado de modelo agrupado']);
+        }
+      }
     });
   } else if (type === 'pendientes') {
     [...state.pendientes].sort((a,b) => a.fechaEjecucion.localeCompare(b.fechaEjecucion)).forEach(p => {
@@ -2529,7 +2616,112 @@ async function onLoginSuccess(saveSession) {
   await pullAllSilent();
   refreshAll();
 
-  showToast(`Bienvenido, ${currentUser.nombre}`);
+  // Mostrar modal de bienvenida amigable para operarios
+  // (los admins ven directo el dashboard sin distracciones)
+  if (!isAdmin()) {
+    setTimeout(() => mostrarBienvenidaOperario(), 300);
+  } else {
+    showToast(`Bienvenido, ${currentUser.nombre}`);
+  }
+}
+
+// Modal de bienvenida amigable que pregunta qué quiere hacer la operaria
+function mostrarBienvenidaOperario() {
+  const hora = new Date().getHours();
+  let saludo = '👋 Hola';
+  if (hora < 12) saludo = '☀️ Buenos días';
+  else if (hora < 19) saludo = '🌤️ Buenas tardes';
+  else saludo = '🌙 Buenas noches';
+
+  const nombre = currentUser ? currentUser.nombre.split(' ')[0] : '';
+  const perms = currentUser ? currentUser.permisos || {} : {};
+
+  // Construir opciones rápidas según permisos
+  const opciones = [];
+
+  if (perms.ciclos) {
+    opciones.push({
+      icon: '📅',
+      titulo: 'Registrar ciclos',
+      desc: 'Registra cada ciclo individual con su hora',
+      action: "irAModulo('ciclos')",
+      color: 'var(--accent-verde)'
+    });
+  }
+  if (perms.limpieza) {
+    opciones.push({
+      icon: '🧹',
+      titulo: 'Reportar limpieza',
+      desc: 'Marca que limpiaste la máquina hoy',
+      action: "irAModulo('limpieza')",
+      color: 'var(--accent-azul)'
+    });
+  }
+  if (perms.pendientes) {
+    opciones.push({
+      icon: '⏳',
+      titulo: 'Ver pendientes',
+      desc: 'Revisa qué hay que hacer hoy o mañana',
+      action: "irAModulo('pendientes')",
+      color: 'var(--accent-amber)'
+    });
+  }
+  if (perms.insumos) {
+    opciones.push({
+      icon: '📦',
+      titulo: 'Revisar insumos',
+      desc: 'Mira el estado del inventario',
+      action: "irAModulo('insumos')",
+      color: '#8b5cf6'
+    });
+  }
+  if (perms.turnos) {
+    opciones.push({
+      icon: '👥',
+      titulo: 'Mis turnos',
+      desc: 'Consulta los turnos programados',
+      action: "irAModulo('turnos')",
+      color: '#ec4899'
+    });
+  }
+
+  const html = `
+    <p style="font-size:1.05rem; color:var(--text-secondary); margin-bottom:6px;">
+      ${saludo}, <strong style="color:var(--accent-cyan);">${nombre}</strong>
+    </p>
+    <p style="font-size:1.1rem; margin-bottom:18px; color:var(--text-primary);">
+      ¿Qué deseas hacer hoy?
+    </p>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+      ${opciones.map(o => `
+        <div onclick="${o.action}" style="
+          cursor:pointer;
+          background:var(--bg-input);
+          border:2px solid var(--border-color);
+          border-left:4px solid ${o.color};
+          border-radius:10px;
+          padding:16px;
+          transition:all 0.2s;
+        " onmouseover="this.style.borderColor='${o.color}'; this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='var(--border-color)'; this.style.borderLeftColor='${o.color}'; this.style.transform='translateY(0)';">
+          <div style="font-size:1.8rem; margin-bottom:6px;">${o.icon}</div>
+          <div style="font-weight:600; margin-bottom:4px; color:var(--text-primary);">${o.titulo}</div>
+          <div style="font-size:0.8rem; color:var(--text-muted);">${o.desc}</div>
+        </div>
+      `).join('')}
+    </div>
+    <p style="margin-top:18px; font-size:0.82rem; color:var(--text-muted); text-align:center;">
+      Tip: También puedes navegar usando el menú lateral en cualquier momento.
+    </p>
+  `;
+  showModal(`👋 ¡Bienvenida!`, html, null, null, true);
+}
+
+function irAModulo(page) {
+  // Cerrar modal
+  closeModal();
+  // Click sintético en el item de navegación
+  const nav = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (nav) nav.click();
 }
 
 async function pullAllSilent() {
@@ -2543,20 +2735,48 @@ async function pullAllSilent() {
 }
 
 function parseDataIntoState(data) {
-  // 1) Parsear ciclos
+  // 1) Parsear ciclos - soporta modelo nuevo (9 cols) y viejo (3 cols)
   state.ciclos = [];
   (data.ciclos || []).forEach(r => {
-    if (!r[0]) return;
-    const fecha = parseFechaExcel(r[0]);
-    if (!fecha) return;
-    const cicloTxt = String(r[1] || '');
-    const color = String(r[2] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE';
-    const cMatch = cicloTxt.match(/(\d+)\s*ciclo/i);
-    const mMatch = cicloTxt.match(/(\d+)\s*medio/i);
-    const ciclos = cMatch ? parseInt(cMatch[1]) : 0;
-    const medios = mMatch ? parseInt(mMatch[1]) : 0;
-    if (ciclos > 0 || medios > 0) {
-      state.ciclos.push({ id: generateId(), fecha, ciclos, mediosCiclos: medios, color });
+    if (!r || r.length === 0) return;
+
+    // Detectar formato por número de columnas con datos
+    // Modelo nuevo: [ID, FECHA, HORA, NUMERO, TIPO, COLOR, OPERARIA, INCIDENTE, OBSERVACIONES]
+    // Modelo viejo: [FECHA, CICLO REALIZADO, COLOR DEL CICLO]
+    const esNuevo = r.length >= 5 && (String(r[4]).toUpperCase() === 'COMPLETO' || String(r[4]).toUpperCase() === 'MEDIO');
+
+    if (esNuevo) {
+      // Modelo nuevo: estructura plana
+      const fecha = parseFechaExcel(r[1]);
+      if (!fecha) return;
+      state.ciclos.push({
+        id: String(r[0] || generateId()),
+        fecha,
+        hora: String(r[2] || ''),
+        numero: parseInt(r[3]) || 0,
+        tipo: String(r[4]).toUpperCase(),
+        color: String(r[5] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE',
+        operaria: String(r[6] || ''),
+        incidente: String(r[7] || ''),
+        observaciones: String(r[8] || ''),
+      });
+    } else {
+      // Modelo viejo: expandir el registro agrupado en ciclos individuales
+      const fecha = parseFechaExcel(r[0]);
+      if (!fecha) return;
+      const cicloTxt = String(r[1] || '');
+      const color = String(r[2] || '').toUpperCase().includes('AZUL') ? 'AZUL' : 'VERDE';
+      const cMatch = cicloTxt.match(/(\d+)\s*ciclo/i);
+      const mMatch = cicloTxt.match(/(\d+)\s*medio/i);
+      const completos = cMatch ? parseInt(cMatch[1]) : 0;
+      const medios = mMatch ? parseInt(mMatch[1]) : 0;
+      let n = 1;
+      for (let i = 0; i < completos; i++) {
+        state.ciclos.push({ id: generateId(), fecha, hora: '', numero: n++, tipo: 'COMPLETO', color, operaria: '', incidente: '', observaciones: '' });
+      }
+      for (let i = 0; i < medios; i++) {
+        state.ciclos.push({ id: generateId(), fecha, hora: '', numero: n++, tipo: 'MEDIO', color, operaria: '', incidente: '', observaciones: '' });
+      }
     }
   });
 
@@ -3064,6 +3284,119 @@ function registrarInventarioInicial() {
   document.getElementById('invInicialLote').value = '';
 }
 
+// ================================================================
+// REINICIO DE DATOS
+// ================================================================
+function seleccionarTodoReinicio(checked) {
+  ['resetCiclos','resetPendientes','resetTurnos','resetMovimientos','resetLimpiezas','resetUsuarios'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = checked;
+  });
+}
+
+function confirmarReinicio() {
+  if (!ensureAdmin('reiniciar datos del sistema')) return;
+
+  // Recopilar las categorías seleccionadas
+  const seleccion = [];
+  const mapping = {
+    'resetCiclos':      { key: 'ciclos',      label: '📅 Ciclos realizados' },
+    'resetPendientes':  { key: 'pendientes',  label: '⏳ Ciclos pendientes' },
+    'resetTurnos':      { key: 'turnos',      label: '👥 Turnos programados' },
+    'resetMovimientos': { key: 'movimientos', label: '📦 Movimientos de insumos' },
+    'resetLimpiezas':   { key: 'limpiezas',   label: '🧹 Registros de limpieza' },
+    'resetUsuarios':    { key: 'usuarios',    label: '⚠️ Usuarios' },
+  };
+
+  Object.keys(mapping).forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.checked) seleccion.push(mapping[id]);
+  });
+
+  if (seleccion.length === 0) {
+    showToast('Selecciona al menos una categoría a borrar', 'warning');
+    return;
+  }
+
+  const incluyeUsuarios = seleccion.some(s => s.key === 'usuarios');
+
+  const html = `
+    <div class="alert alert-danger" style="margin-bottom:14px;">
+      <span>🚨</span>
+      <span>Estás a punto de <strong>BORRAR PERMANENTEMENTE</strong> las siguientes categorías:</span>
+    </div>
+    <ul style="margin-left:20px; line-height:1.8;">
+      ${seleccion.map(s => `<li><strong>${s.label}</strong></li>`).join('')}
+    </ul>
+    ${incluyeUsuarios ? `
+      <div class="alert alert-warning" style="margin-top:14px;">
+        <span>⚠️</span>
+        <span><strong>¡ATENCIÓN!</strong> Borrar usuarios te desconectará y volverás a la pantalla de crear administrador.</span>
+      </div>
+    ` : ''}
+    <p style="margin-top:14px;">Esta acción <strong>NO se puede deshacer</strong>. ¿Deseas continuar?</p>
+  `;
+
+  showModal(
+    '🗑️ Confirmar reinicio',
+    html,
+    () => ejecutarReinicio(seleccion.map(s => s.key)),
+    'Sí, borrar permanentemente'
+  );
+}
+
+async function ejecutarReinicio(targets) {
+  if (!GS.isConnected || !GS.WEB_APP_URL) {
+    showToast('Conéctate a Google Sheets primero', 'error');
+    return;
+  }
+
+  updateSyncStatus('syncing', 'Reiniciando...');
+
+  try {
+    const resp = await fetch(GS.WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'resetData', targets }),
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      showToast('Error: ' + (data.error || 'Desconocido'), 'error');
+      return;
+    }
+
+    // Limpiar también el state local
+    targets.forEach(t => {
+      if (t === 'ciclos') state.ciclos = [];
+      if (t === 'pendientes') state.pendientes = [];
+      if (t === 'turnos') state.turnos = [];
+      if (t === 'movimientos') state.movimientos = [];
+      if (t === 'limpiezas') state.limpiezas = [];
+    });
+    saveStateLocal();
+
+    showToast(`✓ Datos borrados: ${data.cleared.join(', ')}`);
+    updateSyncStatus('connected', 'Sincronizado ✓');
+
+    // Si se borraron usuarios, cerrar sesión y volver al bootstrap
+    if (targets.includes('usuarios')) {
+      setTimeout(() => {
+        try { localStorage.removeItem('ar_session'); } catch(e) {}
+        currentUser = null;
+        document.getElementById('loginOverlay').style.display = 'flex';
+        initLoginFlow();
+      }, 1500);
+    } else {
+      // Limpiar checkboxes y refrescar todo
+      seleccionarTodoReinicio(false);
+      refreshAll();
+    }
+  } catch (err) {
+    showToast('Error de conexión: ' + err.message, 'error');
+    updateSyncStatus('error', 'Error');
+  }
+}
+
 
 let chartCostos = null;
 
@@ -3240,6 +3573,14 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }
 
+// Helper: devuelve el valor numérico de un ciclo independiente del modelo
+// Modelo nuevo (individual): tipo COMPLETO=1, MEDIO=0.5
+// Modelo viejo (agrupado): ciclos + medios*0.5
+function cicloValor(r) {
+  if (r.tipo) return r.tipo === 'COMPLETO' ? 1 : 0.5;
+  return (r.ciclos || 0) + (r.mediosCiclos || 0) * 0.5;
+}
+
 function showToast(msg, type='success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -3247,12 +3588,17 @@ function showToast(msg, type='success') {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-function showModal(title, bodyHtml, onConfirm, confirmLabel='Confirmar') {
+function showModal(title, bodyHtml, onConfirm, confirmLabel='Confirmar', hideConfirmButton=false) {
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalBody').innerHTML = bodyHtml;
   const btn = document.getElementById('modalConfirm');
-  btn.textContent = confirmLabel;
-  btn.onclick = () => { onConfirm(); closeModal(); };
+  if (hideConfirmButton || !onConfirm) {
+    btn.style.display = 'none';
+  } else {
+    btn.style.display = '';
+    btn.textContent = confirmLabel;
+    btn.onclick = () => { onConfirm(); closeModal(); };
+  }
   document.getElementById('modal').classList.add('show');
 }
 
@@ -3360,7 +3706,13 @@ function renderCalendar() {
       else if (colors.has('VERDE')) cell.classList.add('has-data-verde');
       else cell.classList.add('has-data-azul');
 
-      const total = dayRecords.reduce((s,r) => s + (r.ciclos||0) + (r.mediosCiclos||0)*0.5, 0);
+      const total = dayRecords.reduce((s,r) => {
+        // Modelo nuevo (tipo) o legacy (ciclos+mediosCiclos)
+        if (r.tipo) {
+          return s + (r.tipo === 'COMPLETO' ? 1 : 0.5);
+        }
+        return s + (r.ciclos||0) + (r.mediosCiclos||0)*0.5;
+      }, 0);
       cell.innerHTML = `
         <div class="day-number">${day}</div>
         <div class="day-info"><strong>${total}</strong> ciclos</div>
@@ -3393,37 +3745,54 @@ function selectDay(dateISO) {
 }
 
 function loadDayData(dateISO) {
+  // En el modelo nuevo no precargamos valores en el form,
+  // solo seleccionamos el color del último ciclo registrado.
   const dayRecords = state.ciclos.filter(r => r.fecha === dateISO);
-  if (dayRecords.length === 0) {
-    document.getElementById('ciclosInput').value = 0;
-    document.getElementById('mediosInput').value = 0;
-    return;
-  }
-  // Si hay un solo color cargamos sus datos al form
+  if (dayRecords.length === 0) return;
   const lastRec = dayRecords[dayRecords.length-1];
-  document.getElementById('ciclosInput').value = lastRec.ciclos;
-  document.getElementById('mediosInput').value = lastRec.mediosCiclos;
-  selectColor(lastRec.color);
+  if (lastRec.color) selectColor(lastRec.color);
 }
 
 function renderDaySummary(dateISO) {
   const cont = document.getElementById('daySummary');
-  const records = state.ciclos.filter(r => r.fecha === dateISO);
+  const records = state.ciclos.filter(r => r.fecha === dateISO)
+    .sort((a,b) => (a.hora || '').localeCompare(b.hora || ''));
+
   if (records.length === 0) {
-    cont.innerHTML = `<div class="empty-state"><h4>Sin registros</h4><p style="font-size:0.85rem;">No hay datos para este día</p></div>`;
+    cont.innerHTML = `<div class="empty-state"><h4>Sin registros</h4><p style="font-size:0.85rem;">No hay ciclos para este día</p></div>`;
     return;
   }
-  let html = `<p style="margin-bottom:10px; color:var(--text-secondary); font-size:0.9rem;">${formatDateDisplay(dateISO)}</p>`;
-  records.forEach(r => {
+
+  // Contar totales para mostrar arriba
+  const completos = records.filter(r => r.tipo === 'COMPLETO').length;
+  const medios = records.filter(r => r.tipo === 'MEDIO').length;
+  const totalEquivalente = completos + medios * 0.5;
+
+  let html = `<p style="margin-bottom:10px; color:var(--text-secondary); font-size:0.85rem;">${formatDateDisplay(dateISO)}</p>`;
+
+  html += `<div style="background:var(--bg-secondary); padding:10px 12px; border-radius:6px; margin-bottom:10px; text-align:center;">
+    <div style="font-size:1.5rem; font-weight:700; color:var(--accent-cyan);">${totalEquivalente.toFixed(1)}</div>
+    <div style="font-size:0.78rem; color:var(--text-muted);">${completos} completos · ${medios} medios</div>
+  </div>`;
+
+  records.forEach((r, idx) => {
     const badge = r.color === 'VERDE' ? 'badge-verde' : 'badge-azul';
     const emoji = r.color === 'VERDE' ? '🟢' : '🔵';
+    const tipoLabel = r.tipo === 'COMPLETO' ? '✅ Completo' : '½ Medio';
+    const incidente = r.incidente ? `<span class="badge badge-red" style="margin-left:6px;">⚠️ ${r.incidente}</span>` : '';
+    const operariaTxt = r.operaria ? ` · ${r.operaria}` : '';
+
     html += `
-      <div style="background:var(--bg-input); padding:10px 12px; border-radius:6px; margin-bottom:8px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <span class="badge ${badge}">${emoji} ${r.color}</span>
-          <strong>${(r.ciclos + r.mediosCiclos*0.5).toFixed(1)} ciclos</strong>
+      <div style="background:var(--bg-input); padding:8px 12px; border-radius:6px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; font-size:0.85rem;">
+        <div>
+          <strong>#${idx + 1}</strong>
+          <span style="color:var(--text-muted); margin:0 6px;">${r.hora || '—'}</span>
+          <span class="badge ${badge}">${emoji}</span>
+          <span style="margin-left:6px;">${tipoLabel}</span>
+          ${incidente}
+          <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">${operariaTxt.trim()}</div>
         </div>
-        <div style="font-size:0.82rem; color:var(--text-secondary);">${formatCicloText(r.ciclos, r.mediosCiclos)}</div>
+        <button class="icon-btn danger" onclick="deleteRecord('${r.id}')" title="Eliminar">🗑️</button>
       </div>`;
   });
   cont.innerHTML = html;
@@ -3453,19 +3822,18 @@ function selectPendColor(color) {
   });
 }
 
-function saveRecord() {
+// === Registro individual de ciclos ===
+// Cada llamada agrega UN ciclo (completo o medio) a la lista del día con su hora.
+function registrarCicloIndividual(tipo) {
   const fecha = document.getElementById('dateInput').value;
-  const ciclos = parseInt(document.getElementById('ciclosInput').value) || 0;
-  const mediosCiclos = parseInt(document.getElementById('mediosInput').value) || 0;
-
   if (!fecha) { showToast('Selecciona una fecha', 'error'); return; }
   if (!fechaEsValida(fecha)) return;
-  if (ciclos === 0 && mediosCiclos === 0) {
-    showToast('Ingresa al menos un ciclo', 'warning'); return;
+  if (tipo !== 'COMPLETO' && tipo !== 'MEDIO') {
+    showToast('Tipo inválido', 'error'); return;
   }
 
-  // Verificar insumos EN USO (no en bodega): el ciclo se permite con advertencia
-  const totalUnidades = ciclos + mediosCiclos * 0.5;
+  // Calcular consumo de este ciclo
+  const consumo = tipo === 'COMPLETO' ? 1 : 0.5;
   const insumosCiclo = ['HIDROFOBICO', 'ZIRCONIO', 'CUARZO'];
   const problemas = [];
 
@@ -3474,35 +3842,46 @@ function saveRecord() {
     const def = INSUMOS_DEF[k];
     if (!enUso) {
       problemas.push(`<strong>${def.nombre}</strong>: no hay lote en uso (debes abrir uno en 📦 Insumos)`);
-    } else if (enUso.gramosDisponibles < totalUnidades) {
-      problemas.push(`<strong>${def.nombre}</strong>: solo quedan ${enUso.gramosDisponibles} ${def.unidad} en el lote en uso (necesitas ${totalUnidades})`);
+    } else if (enUso.gramosDisponibles < consumo) {
+      problemas.push(`<strong>${def.nombre}</strong>: solo quedan ${enUso.gramosDisponibles} ${def.unidad} (necesitas ${consumo})`);
     }
   });
 
   const proceder = () => {
-    // Reemplazar si ya existe registro mismo día + mismo color
-    const idx = state.ciclos.findIndex(r => r.fecha === fecha && r.color === selectedColor);
+    // Calcular el siguiente número de ciclo del día
+    const dayRecords = state.ciclos.filter(r => r.fecha === fecha);
+    const numero = dayRecords.length + 1;
+
+    // Hora actual en formato HH:MM
+    const ahora = new Date();
+    const hora = String(ahora.getHours()).padStart(2,'0') + ':' + String(ahora.getMinutes()).padStart(2,'0');
+
     const newRec = {
-      id: idx >= 0 ? state.ciclos[idx].id : generateId(),
-      fecha, ciclos, mediosCiclos, color: selectedColor
+      id: generateId(),
+      fecha,
+      hora,
+      numero,
+      tipo, // COMPLETO o MEDIO
+      color: selectedColor,
+      operaria: currentUser ? currentUser.nombre : '',
+      incidente: '',
+      observaciones: ''
     };
 
-    if (idx >= 0) {
-      state.ciclos[idx] = newRec;
-      showToast('Registro actualizado');
-    } else {
-      state.ciclos.push(newRec);
-      showToast('Registro guardado');
-    }
+    state.ciclos.push(newRec);
 
-    registrarConsumoAuto(newRec);
+    // Auto-consumo
+    registrarConsumoCicloIndividual(newRec);
+
     saveState();
     renderCalendar();
     renderRecordsTable();
     renderDaySummary(fecha);
+
+    const tipoTxt = tipo === 'COMPLETO' ? 'Ciclo completo' : 'Medio ciclo';
+    showToast(`✓ ${tipoTxt} #${numero} registrado a las ${hora}`);
   };
 
-  // Si hay problemas con insumos, mostrar advertencia y pedir confirmación
   if (problemas.length > 0) {
     const html = `
       <div class="alert alert-warning" style="margin-bottom:12px;">
@@ -3513,27 +3892,57 @@ function saveRecord() {
         ${problemas.map(p => `<li>${p}</li>`).join('')}
       </ul>
       <p style="margin-top:12px; font-size:0.9rem;">
-        El registro se guardará y el descuento quedará pendiente.
         Te recomendamos primero abrir o reponer los insumos en el módulo 📦 Insumos.
       </p>
       <p style="margin-top:10px; font-size:0.9rem;"><strong>¿Deseas continuar de todas formas?</strong></p>
     `;
-    showModal('⚠️ Insumos insuficientes', html, proceder, 'Sí, registrar de todas formas');
+    showModal('⚠️ Insumos insuficientes', html, proceder, 'Sí, registrar');
   } else {
     proceder();
   }
 }
 
-function registrarConsumoAuto(rec) {
-  // Eliminar consumos auto previos asociados a este registro (para evitar dobles descuentos al editar)
+// Mantengo saveRecord como alias por compatibilidad (no se usa en UI nueva)
+function saveRecord() {
+  showToast('Usa los botones de ciclo individual', 'warning');
+}
+
+// Para el modelo NUEVO: descuenta el consumo de UN ciclo individual
+function registrarConsumoCicloIndividual(rec) {
+  // Eliminar consumos auto previos asociados a este ciclo (por si se edita)
   state.movimientos = state.movimientos.filter(m => !(m.tipo === 'CONSUMO_AUTO' && m.cicloRefId === rec.id));
 
-  // Cálculo total: ciclos completos = 1 unidad, medios ciclos = 0.5 unidades
+  const cantidad = rec.tipo === 'COMPLETO' ? 1 : 0.5;
+
+  ['HIDROFOBICO','ZIRCONIO','CUARZO'].forEach(insumo => {
+    const enUso = obtenerLoteEnUso(insumo);
+    const loteRefId = enUso ? enUso.id : '';
+    const tipoTxt = rec.tipo === 'COMPLETO' ? 'ciclo completo' : 'medio ciclo';
+
+    state.movimientos.push({
+      id: generateId(),
+      fecha: rec.fecha,
+      insumo,
+      tipo: 'CONSUMO_AUTO',
+      cantidad,
+      lote: '',
+      loteRefId,
+      observaciones: `1 ${tipoTxt} #${rec.numero} (${rec.color}) → ${cantidad} ${INSUMOS_DEF[insumo].unidad}`,
+      cicloRefId: rec.id,
+      color: rec.color
+    });
+  });
+}
+
+// Legacy (no se usa con el nuevo modelo individual, pero lo dejo por si quedan referencias)
+function registrarConsumoAuto(rec) {
+  // Eliminar consumos auto previos asociados a este registro
+  state.movimientos = state.movimientos.filter(m => !(m.tipo === 'CONSUMO_AUTO' && m.cicloRefId === rec.id));
+
   const totalUnidades = (rec.ciclos || 0) + (rec.mediosCiclos || 0) * 0.5;
   if (totalUnidades === 0) return;
 
   ['HIDROFOBICO','ZIRCONIO','CUARZO'].forEach(insumo => {
-    // Buscar el lote actualmente en uso para descontar de él
     const enUso = obtenerLoteEnUso(insumo);
     const loteRefId = enUso ? enUso.id : '';
 
@@ -3580,7 +3989,30 @@ function ensureAdmin(action) {
   return true;
 }
 
-// Reportar filamento roto: descuenta 1 filamento y deja nota en el ciclo
+// Reporta que el filamento se rompió en el último ciclo registrado del día
+function reportFilamentoEnUltimoCiclo() {
+  const fecha = document.getElementById('dateInput').value;
+  if (!fecha) {
+    showToast('Selecciona una fecha primero', 'error');
+    return;
+  }
+  if (!fechaEsValida(fecha)) return;
+
+  // Buscar el último ciclo del día (por número o por hora)
+  const ciclosDelDia = state.ciclos.filter(r => r.fecha === fecha)
+    .sort((a,b) => (b.numero || 0) - (a.numero || 0));
+
+  if (ciclosDelDia.length === 0) {
+    showToast('No hay ciclos registrados hoy. Registra un ciclo primero.', 'warning');
+    return;
+  }
+
+  const ultimo = ciclosDelDia[0];
+  document.getElementById('filamentoCicloNum').value = ultimo.numero;
+  reportFilamentoRoto();
+}
+
+// Reportar filamento roto: descuenta 1 filamento y marca el ciclo con incidente
 function reportFilamentoRoto() {
   const fecha = document.getElementById('dateInput').value;
   const cicloNum = parseInt(document.getElementById('filamentoCicloNum').value) || 0;
@@ -3651,10 +4083,20 @@ function reportFilamentoRoto() {
         cicloRoturaRef: cicloNum,
       });
 
+      // Marcar el ciclo individual con el incidente
+      const cicloAfectado = state.ciclos.find(r =>
+        r.fecha === fecha && r.numero === cicloNum
+      );
+      if (cicloAfectado) {
+        cicloAfectado.incidente = 'Filamento roto';
+      }
+
       saveState();
       refreshInsumos();
+      renderRecordsTable();
+      if (selectedDate) renderDaySummary(selectedDate);
       document.getElementById('filamentoCicloNum').value = '';
-      showToast(`✓ Filamento descontado · Ciclo ${cicloNum}`);
+      showToast(`✓ Filamento descontado · Ciclo ${cicloNum} marcado`);
     },
     'Sí, reportar'
   );
@@ -3665,36 +4107,32 @@ function deleteRecord(id) {
   const cicloABorrar = state.ciclos.find(r => r.id === id);
   if (!cicloABorrar) return;
 
-  showModal('¿Eliminar registro?',
-    '<p>Esta acción eliminará el registro y revertirá el consumo automático asociado.</p>',
-    () => {
-      const fecha = cicloABorrar.fecha;
-      const color = cicloABorrar.color;
+  const fecha = cicloABorrar.fecha;
+  const detalle = `Ciclo #${cicloABorrar.numero || '?'} ${cicloABorrar.tipo || ''} (${cicloABorrar.color}) ${cicloABorrar.hora ? 'a las ' + cicloABorrar.hora : ''}`;
 
-      // Eliminar el ciclo
+  showModal('¿Eliminar este ciclo?',
+    `<p>Se eliminará el <strong>${detalle}</strong> y se revertirá el consumo automático asociado.</p>`,
+    () => {
+      // Eliminar el ciclo individual
       state.ciclos = state.ciclos.filter(r => r.id !== id);
 
-      // Eliminar consumos auto asociados (por ID directo y por fecha+color como fallback)
-      state.movimientos = state.movimientos.filter(m => {
-        if (m.tipo !== 'CONSUMO_AUTO') return true;
-        // Eliminar si el cicloRefId coincide
-        if (m.cicloRefId === id) return false;
-        // Eliminar si es CONSUMO_AUTO huérfano del mismo día y color
-        const obsTieneColor = (m.observaciones || '').toUpperCase().includes(`(${color})`);
-        if (m.fecha === fecha && obsTieneColor) {
-          // Verificar que no haya otro ciclo del mismo día/color que pueda reclamarlo
-          const otroCiclo = state.ciclos.find(c => c.fecha === fecha && c.color === color);
-          if (!otroCiclo) return false; // huérfano confirmado
-        }
-        return true;
-      });
+      // Eliminar los CONSUMO_AUTO asociados por cicloRefId
+      state.movimientos = state.movimientos.filter(m =>
+        !(m.tipo === 'CONSUMO_AUTO' && m.cicloRefId === id)
+      );
+
+      // Renumerar los ciclos restantes del día
+      const restantes = state.ciclos
+        .filter(r => r.fecha === fecha)
+        .sort((a,b) => (a.hora || '').localeCompare(b.hora || ''));
+      restantes.forEach((r, idx) => { r.numero = idx + 1; });
 
       saveState();
       renderCalendar();
       renderRecordsTable();
       refreshInsumos();
       if (selectedDate) renderDaySummary(selectedDate);
-      showToast('Registro eliminado y consumos revertidos');
+      showToast('Ciclo eliminado y consumo revertido');
     }
   );
 }
@@ -3702,17 +4140,29 @@ function deleteRecord(id) {
 function renderRecordsTable() {
   const tbody = document.getElementById('recordsTable');
   if (state.ciclos.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="empty-state"><h4>No hay registros</h4></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state"><h4>No hay registros</h4></td></tr>`;
     return;
   }
-  const sorted = [...state.ciclos].sort((a,b) => b.fecha.localeCompare(a.fecha));
+  const sorted = [...state.ciclos].sort((a,b) =>
+    b.fecha.localeCompare(a.fecha) || (b.hora||'').localeCompare(a.hora||'')
+  );
   tbody.innerHTML = sorted.map(r => {
     const badge = r.color === 'VERDE' ? 'badge-verde' : 'badge-azul';
     const emoji = r.color === 'VERDE' ? '🟢' : '🔵';
+    const tipoBadge = r.tipo === 'COMPLETO'
+      ? '<span class="badge badge-verde">✅ Completo</span>'
+      : '<span class="badge badge-amber">½ Medio</span>';
+    const incidente = r.incidente
+      ? `<span class="badge badge-red">⚠️ ${r.incidente}</span>`
+      : '—';
     return `<tr>
       <td>${formatDateDisplay(r.fecha)}</td>
-      <td>${formatCicloText(r.ciclos, r.mediosCiclos)}</td>
+      <td>${r.hora || '—'}</td>
+      <td><strong>#${r.numero || '?'}</strong></td>
+      <td>${tipoBadge}</td>
       <td><span class="badge ${badge}">${emoji} ${r.color}</span></td>
+      <td>${r.operaria || '—'}</td>
+      <td>${incidente}</td>
       <td><button class="icon-btn danger" onclick="deleteRecord('${r.id}')">🗑️</button></td>
     </tr>`;
   }).join('');
@@ -4558,12 +5008,13 @@ function refreshDashboard() {
 
   // Ciclos hoy
   const cicHoy = state.ciclos.filter(r => r.fecha === today);
-  const totalHoy = cicHoy.reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
-  const ciclosHoy = cicHoy.reduce((s,r) => s + r.ciclos, 0);
-  const mediosHoy = cicHoy.reduce((s,r) => s + r.mediosCiclos, 0);
+  const totalHoy = cicHoy.reduce((s,r) => s + cicloValor(r), 0);
+  const completosHoy = cicHoy.filter(r => r.tipo ? r.tipo === 'COMPLETO' : (r.ciclos > 0)).length;
+  const mediosHoy = cicHoy.filter(r => r.tipo === 'MEDIO').length
+    + cicHoy.filter(r => !r.tipo && r.mediosCiclos > 0).reduce((s,r) => s + r.mediosCiclos, 0);
   document.getElementById('statCiclosHoy').textContent = totalHoy;
   document.getElementById('statCiclosHoyDetail').textContent =
-    `${ciclosHoy} ciclos completos · ${mediosHoy} medios`;
+    `${completosHoy} completos · ${mediosHoy} medios`;
 
   // Esta semana
   const now = new Date();
@@ -4572,7 +5023,7 @@ function refreshDashboard() {
   monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
   const mondayISO = formatDateISO(monday);
   const totalSem = state.ciclos.filter(r => r.fecha >= mondayISO && r.fecha <= today)
-    .reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
+    .reduce((s,r) => s + cicloValor(r), 0);
   document.getElementById('statCiclosSemana').textContent = totalSem;
 
   // Pendientes mañana
@@ -4588,9 +5039,9 @@ function refreshDashboard() {
   const mm = String(now.getMonth()+1).padStart(2,'0');
   const prefix = `${yyyy}-${mm}`;
   const cicMes = state.ciclos.filter(r => r.fecha.startsWith(prefix));
-  const totalMes = cicMes.reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
-  const verdeMes = cicMes.filter(r => r.color === 'VERDE').reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
-  const azulMes = cicMes.filter(r => r.color === 'AZUL').reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
+  const totalMes = cicMes.reduce((s,r) => s + cicloValor(r), 0);
+  const verdeMes = cicMes.filter(r => r.color === 'VERDE').reduce((s,r) => s + cicloValor(r), 0);
+  const azulMes = cicMes.filter(r => r.color === 'AZUL').reduce((s,r) => s + cicloValor(r), 0);
   document.getElementById('statCiclosMes').textContent = totalMes;
   document.getElementById('statCiclosMesDetail').textContent = `${verdeMes} verde · ${azulMes} azul`;
 
@@ -4787,7 +5238,7 @@ function exportToExcel(emptyTemplate=false) {
     state.movimientos.filter(m => m.tipo === 'CONSUMO' || m.tipo === 'CONSUMO_AUTO').forEach(m => {
       const def = INSUMOS_DEF[m.insumo] || {unidad:''};
       const ciclosDia = state.ciclos.filter(r => r.fecha === m.fecha)
-        .reduce((s,r) => s + r.ciclos, 0);
+        .reduce((s,r) => s + cicloValor(r), 0);
       data5.push([formatDateDisplay(m.fecha), m.insumo, m.cantidad, def.unidad, ciclosDia, m.color || '—']);
     });
   }
@@ -4800,9 +5251,9 @@ function exportToExcel(emptyTemplate=false) {
   const now = new Date();
   const prefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const cicMes = state.ciclos.filter(r => r.fecha.startsWith(prefix));
-  const totalMes = cicMes.reduce((s,r) => s + r.ciclos + r.mediosCiclos*0.5, 0);
-  const verdeMes = cicMes.filter(r=>r.color==='VERDE').reduce((s,r)=>s+r.ciclos+r.mediosCiclos*0.5,0);
-  const azulMes = cicMes.filter(r=>r.color==='AZUL').reduce((s,r)=>s+r.ciclos+r.mediosCiclos*0.5,0);
+  const totalMes = cicMes.reduce((s,r) => s + cicloValor(r), 0);
+  const verdeMes = cicMes.filter(r=>r.color==='VERDE').reduce((s,r)=>s+cicloValor(r),0);
+  const azulMes = cicMes.filter(r=>r.color==='AZUL').reduce((s,r)=>s+cicloValor(r),0);
 
   const data6 = [
     ['RESUMEN GENERAL DE OPERACION','','',''],
