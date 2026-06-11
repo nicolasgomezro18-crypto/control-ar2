@@ -2487,6 +2487,21 @@ async function initLoginFlow() {
     showLoginSection('config');
     return;
   }
+
+  // Verificar versión del backend (ping)
+  try {
+    const pingResp = await fetch(GS.WEB_APP_URL + '?action=ping');
+    const pingData = await pingResp.json();
+    if (pingData.ok) {
+      window._backendVersion = pingData.version || '?';
+      window._backendSheets = pingData.sheets || [];
+      // Si el backend NO tiene la hoja CONTROL LIMPIEZA, avisar al admin más tarde
+      window._backendNoLimpieza = !window._backendSheets.some(s =>
+        String(s).toUpperCase().includes('LIMPIEZA')
+      );
+    }
+  } catch(e) { /* ignorar */ }
+
   // Verificar si necesita bootstrap
   try {
     const resp = await fetch(GS.WEB_APP_URL + '?action=checkBootstrap');
@@ -2622,6 +2637,33 @@ async function onLoginSuccess(saveSession) {
     setTimeout(() => mostrarBienvenidaOperario(), 300);
   } else {
     showToast(`Bienvenido, ${currentUser.nombre}`);
+
+    // Si el backend está desactualizado (no tiene hoja CONTROL LIMPIEZA),
+    // avisar al admin con un modal informativo
+    if (window._backendNoLimpieza) {
+      setTimeout(() => {
+        const html = `
+          <div class="alert alert-warning" style="margin-bottom:14px;">
+            <span>⚠️</span>
+            <span>Tu backend de Google Apps Script es una versión antigua.</span>
+          </div>
+          <p style="margin-bottom:10px;">El backend actual <strong>no tiene la hoja "CONTROL LIMPIEZA"</strong>, por eso los registros de limpieza no se sincronizan entre usuarios.</p>
+          <p style="margin-bottom:10px;"><strong>Cómo solucionarlo:</strong></p>
+          <ol style="margin-left:20px; line-height:1.8; font-size:0.9rem;">
+            <li>Abre tu Google Sheets → <strong>Extensiones → Apps Script</strong></li>
+            <li>Selecciona todo (Ctrl+A) y borra el código actual</li>
+            <li>Pega el contenido del archivo <code>AppsScript_Backend_v3.gs</code></li>
+            <li>Guarda (Ctrl+S)</li>
+            <li>Ejecuta la función <code>setupAllSheets</code> desde el editor (botón ▶️) para crear la nueva hoja</li>
+            <li><strong>Implementar → Administrar implementaciones → ✏️ Editar → Nueva versión → Implementar</strong></li>
+          </ol>
+          <p style="margin-top:12px; font-size:0.85rem; color:var(--text-muted);">
+            Una vez actualizado, recarga esta aplicación y las limpiezas funcionarán correctamente.
+          </p>
+        `;
+        showModal('⚠️ Backend desactualizado', html, null, null, true);
+      }, 600);
+    }
   }
 }
 
@@ -5570,8 +5612,14 @@ function saveLimpieza() {
 
   saveState();
   refreshLimpieza();
-  showToast(`✓ Limpieza ${tipo.toLowerCase()} registrada`);
   document.getElementById('limpiezaOperaria').value = '';
+
+  // Si el backend está desactualizado, avisar que el registro no se compartirá
+  if (window._backendNoLimpieza) {
+    showToast(`⚠️ Limpieza guardada solo localmente. Avisa al admin para actualizar el backend.`, 'warning');
+  } else {
+    showToast(`✓ Limpieza ${tipo.toLowerCase()} registrada`);
+  }
 }
 
 function deleteLimpieza(id) {
